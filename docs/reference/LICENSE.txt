@@ -1,0 +1,44 @@
+X4 MULTIPLAYER SOURCE INSPECTION LICENSE
+Version 1.0 — 23 October 2026
+
+Copyright (c) 2026 the respective X4 Multiplayer contributors.
+All rights reserved except as expressly granted below.
+
+1. LIMITED PERMISSION
+The copyright holders who authorize this publication (the "Licensors") grant
+you a non-exclusive, worldwide, royalty-free permission to view this source
+snapshot and download and retain unmodified copies solely for your own private
+source inspection. Keep this license and all existing attribution and notices
+with any copy. This permission applies only to rights held by the Licensors.
+
+2. RESERVED USES
+This license does not grant permission to modify the software, create derivative
+works, incorporate it into other software, compile or execute it, redistribute
+or sublicense it, or use it for commercial purposes. Obtain separate permission
+from the relevant rights holders for these uses. A GitHub fork is subject to
+section 3 below. This is a source-inspection license, not an open-source license.
+No patent, trademark or endorsement license is granted.
+
+3. GITHUB AND MANDATORY RIGHTS
+Nothing in this license restricts rights granted by the applicable GitHub Terms
+of Service, including viewing and forking through GitHub's functionality, or any
+rights that applicable law does not permit the Licensors to restrict. Those
+rights take precedence over any conflicting wording in this license. This
+license grants no additional reuse permission beyond section 1.
+
+4. THIRD-PARTY AND SEPARATE PERMISSIONS
+Third-party material, if any, remains governed by its own applicable terms and
+is not relicensed here. See THIRD-PARTY.txt. This license does not revoke or
+replace separately granted rights to internal test packages or to contributors
+working under a separate agreement. Ownership of contributions remains with
+their respective rights holders.
+
+5. NO WARRANTY
+To the extent permitted by applicable law, this snapshot is provided "AS IS",
+without warranties of any kind. To that extent the Licensors are not liable for
+claims or damages arising from its use. Nothing excludes liability or consumer
+rights that cannot lawfully be excluded.
+
+For permission beyond source inspection, contact the repository owner through
+the project's official GitHub presence. Possession of a copy does not give write
+access to the project's repository.

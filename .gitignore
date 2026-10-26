@@ -1,0 +1,15 @@
+# Build output
+/target/
+
+# Generated conformance transcripts. The scenarios are inputs and are
+# tracked; the transcripts are outputs and are not.
+/conformance/scenarios/*/
+/conformance/scenarios/*/python.json
+/conformance/scenarios/*/rust.json
+
+# A failing fuzz run is kept for inspection, but only on request.
+/conformance/scenarios/fuzz-failure-*.json
+
+# Python bytecode
+__pycache__/
+*.py[cod]

@@ -1,0 +1,22 @@
+THIRD-PARTY SCOPE AND ATTRIBUTION
+
+This source snapshot contains project implementation and diagnostic/test source.
+It does not bundle X4 game executables, saves, extracted game schemas, game assets,
+Python/Lua/Lupa runtimes, SDK headers or compiled network libraries.
+
+X4 Foundations and related game/DLC names belong to their respective rights
+holders, including Egosoft. Engine API names, macros and data-format references
+identify integration points; no ownership of the game or endorsement is claimed.
+
+The native bridge contains minimal declarations for the Lua 5.1/LuaJIT ABI and
+system socket APIs; the original source points to Lua's API documentation.
+Lupa/LuaJIT, CPython and Zig are development/runtime dependencies referenced by
+source and dependency manifests. This snapshot does not redistribute them and
+does not change their own licenses. Runtime download URLs and checksums are
+metadata, not bundled third-party software.
+
+Neresco's X4 multiplayer projects were consulted as research references. Their
+multiplayer sources, binaries and framework are not included in this snapshot.
+
+The inspection license applies only to rights its Licensors can grant. Any
+separately identified third-party material retains its own applicable terms.
