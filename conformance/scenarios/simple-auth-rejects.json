@@ -1,0 +1,32 @@
+{
+  "mode": "simple",
+  "token": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "build": "test",
+  "bubble": "bubble",
+  "steps": [
+    {
+      "at": 0.0,
+      "packet": "HELLO|1|bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb|test|sector_macro|bubble|p1|11111111111111111111111111111111",
+      "from": "127.0.0.1:10001"
+    },
+    {
+      "at": 0.0,
+      "packet": "HELLO|1|aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|other|sector_macro|bubble|p1|11111111111111111111111111111111",
+      "from": "127.0.0.1:10001"
+    },
+    {
+      "at": 0.0,
+      "packet": "HELLO|1|aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|test|sector_macro|else|p1|11111111111111111111111111111111",
+      "from": "127.0.0.1:10001"
+    },
+    {
+      "at": 0.0,
+      "packet": "HELLO|1|aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|test|sector_macro|bubble|p3|11111111111111111111111111111111",
+      "from": "127.0.0.1:10001"
+    },
+    {
+      "at": 0.0,
+      "snapshot": true
+    }
+  ]
+}

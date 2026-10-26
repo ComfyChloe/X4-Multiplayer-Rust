@@ -1,0 +1,32 @@
+{
+  "mode": "simple",
+  "token": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "build": "test",
+  "bubble": "bubble",
+  "steps": [
+    {
+      "at": 0.0,
+      "packet": "HELLO|1|aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|test|sector_macro|bubble|p1|11111111111111111111111111111111",
+      "from": "127.0.0.1:10001"
+    },
+    {
+      "at": 0.1,
+      "packet": "STATE|1|ffffffffffffffffffffffffffffffff|2|1|2|3|0|0|0",
+      "from": "127.0.0.1:10001"
+    },
+    {
+      "at": 0.2,
+      "packet": "IDLE|1|ffffffffffffffffffffffffffffffff|3",
+      "from": "127.0.0.1:10001"
+    },
+    {
+      "at": 0.3,
+      "packet": "STATE|1|ffffffffffffffffffffffffffffffff|2|1|2|3|0|0|0",
+      "from": "127.0.0.1:10001"
+    },
+    {
+      "at": 0.4,
+      "snapshot": true
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "mode": "economy",
+  "token": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "build": "test",
+  "bubble": "bubble",
+  "steps": [
+    {
+      "at": 0.0,
+      "packet": "HELLO|1|aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|test|sector_macro|bubble|p1|11111111111111111111111111111111",
+      "from": "127.0.0.1:10001"
+    },
+    {
+      "at": 0.0,
+      "packet": "HELLO|1|aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|test|sector_macro|bubble|p2|22222222222222222222222222222222",
+      "from": "127.0.0.1:10002"
+    },
+    {
+      "at": 0.1,
+      "packet": "ORDER|1|eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee|11111111111111111111111111111111|ffffffffffffffffffffffffffffffff|m1|energycells,10,5",
+      "from": "127.0.0.1:10001"
+    },
+    {
+      "at": 0.2,
+      "snapshot": true
+    }
+  ]
+}

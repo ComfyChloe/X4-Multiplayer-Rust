@@ -1,0 +1,32 @@
+{
+  "mode": "dock",
+  "token": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "build": "test",
+  "bubble": "bubble",
+  "steps": [
+    {
+      "at": 0.0,
+      "packet": "HELLO|1|aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|test|sector_macro|bubble|p1|11111111111111111111111111111111",
+      "from": "127.0.0.1:10001"
+    },
+    {
+      "at": 0.0,
+      "packet": "HELLO|1|aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|test|sector_macro|bubble|p2|22222222222222222222222222222222",
+      "from": "127.0.0.1:10002"
+    },
+    {
+      "at": 0.1,
+      "packet": "CREW|1|ffffffffffffffffffffffffffffffff|1|1|1",
+      "from": "127.0.0.1:10001"
+    },
+    {
+      "at": 0.2,
+      "packet": "CDOCK|1|ffffffffffffffffffffffffffffffff|1|1|2|EXTERNAL|42",
+      "from": "127.0.0.1:10001"
+    },
+    {
+      "at": 0.3,
+      "snapshot": true
+    }
+  ]
+}

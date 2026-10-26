@@ -1,0 +1,17 @@
+[package]
+name = "x4lan-relay"
+description = "Dedicated server for the X4: Foundations LAN multiplayer relay"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "x4lan-relay"
+path = "src/main.rs"
+
+[dependencies]
+x4lan-core = { workspace = true }
+socket2 = { workspace = true }

@@ -1,0 +1,22 @@
+{
+  "mode": "simple",
+  "token": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "build": "test",
+  "bubble": "bubble",
+  "steps": [
+    {
+      "at": 0.0,
+      "packet": "HELLO|1|aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|test|sector_macro|bubble|p1|11111111111111111111111111111111",
+      "from": "127.0.0.1:10001"
+    },
+    {
+      "at": 0.1,
+      "packet": "RESUME|1|aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|test|sector_macro|bubble|p1|11111111111111111111111111111111|ffffffffffffffffffffffffffffffff|22222222222222222222222222222222",
+      "from": "127.0.0.1:10001"
+    },
+    {
+      "at": 0.2,
+      "snapshot": true
+    }
+  ]
+}

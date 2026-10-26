@@ -1,0 +1,18 @@
+{
+  "mode": "simple",
+  "token": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "build": "test",
+  "bubble": "bubble",
+  "steps": [
+    {
+      "at": 0.0,
+      "packet": "PING|1|aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|11111111111111111111111111111111",
+      "from": "127.0.0.1:10001"
+    },
+    {
+      "at": 0.1,
+      "packet": "PING|1|bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb|11111111111111111111111111111111",
+      "from": "127.0.0.1:10001"
+    }
+  ]
+}

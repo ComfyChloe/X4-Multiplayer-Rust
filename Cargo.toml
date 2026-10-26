@@ -1,0 +1,29 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/x4lan-core",
+    "crates/x4lan-relay",
+    "crates/x4lan-native",
+    "crates/x4lan-conformance",
+]
+
+[workspace.package]
+version = "7.5.0"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT"
+authors = ["ComfyChloe"]
+repository = "https://github.com/ComfyChloe/X4-Multiplayer-Rust"
+
+[workspace.dependencies]
+x4lan-core = { path = "crates/x4lan-core" }
+socket2 = "0.5"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = true
