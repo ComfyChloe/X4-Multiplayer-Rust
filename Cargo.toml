@@ -5,6 +5,7 @@ members = [
     "crates/x4lan-relay",
     "crates/x4lan-native",
     "crates/x4lan-conformance",
+    "crates/x4lan-prepare",
 ]
 
 [workspace.package]

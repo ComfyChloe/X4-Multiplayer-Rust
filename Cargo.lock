@@ -199,6 +199,10 @@ name = "x4lan-native"
 version = "7.5.0"
 
 [[package]]
+name = "x4lan-prepare"
+version = "7.5.0"
+
+[[package]]
 name = "x4lan-relay"
 version = "7.5.0"
 dependencies = [

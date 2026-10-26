@@ -1,0 +1,15 @@
+[package]
+name = "x4lan-prepare"
+description = "Prepares the two client folders for an X4: Foundations LAN multiplayer session"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "x4lan-prepare"
+path = "src/main.rs"
+
+[dependencies]
