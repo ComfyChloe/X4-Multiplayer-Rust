@@ -437,23 +437,7 @@ impl Identities {
     }
 }
 
-/// NPC damage and destruction bookkeeping.
-#[derive(Debug, Clone, Default)]
-pub struct NpcCombat {
-    pub claims: OrderedMap<i64, (String, i64, String)>,
-    pub next_send: f64,
-    pub cursor: usize,
-}
 
-impl NpcCombat {
-    pub fn new() -> Self {
-        Self {
-            claims: OrderedMap::new(),
-            next_send: 0.0,
-            cursor: 0,
-        }
-    }
-}
 
 impl Session {
     /// Handles a packet in the universe layer.
@@ -648,6 +632,7 @@ impl Session {
         };
         self.universe_epoch = Some(peer_lease.clone());
         if let Some(committed) = committed {
+            self.npc_combat.committed(&committed);
             self.sectors.insert(committed.sector.clone(), committed.clone());
             while self.sectors.len() > 8 {
                 let oldest = self.sectors.keys().next().cloned().unwrap_or_default();
@@ -923,75 +908,6 @@ impl Session {
         Vec::new()
     }
 
-    /// Handles an NPC combat packet.
-    fn receive_npc_combat(
-        &mut self,
-        raw: &[u8],
-        address: PeerAddress,
-        now: f64,
-    ) -> Vec<Vec<u8>> {
-        self.expire(now);
-        if raw.len() > MAX_PACKET {
-            return Vec::new();
-        }
-        let Ok(text) = std::str::from_utf8(raw) else {
-            return Vec::new();
-        };
-        if !text.is_ascii() {
-            return Vec::new();
-        }
-        let fields: Vec<&str> = text.split('|').collect();
-        if fields.len() < 3 || fields[1] != "1" {
-            return Vec::new();
-        }
-        let Some(slot) = self.peer_slot(fields[2], address) else {
-            return Vec::new();
-        };
-        let peer_lease = self.peers.get(&slot).map(|p| p.lease.clone()).unwrap_or_default();
-        match fields[0] {
-            "NHP" if fields.len() >= 5 => {
-                let Some(entity) = sequence(fields[3]) else {
-                    return Vec::new();
-                };
-                let Some(seq) = sequence(fields[4]) else {
-                    return Vec::new();
-                };
-                if let Some(old) = self.npc_combat.claims.get(&entity) {
-                    if old.2 == peer_lease && seq <= old.1 {
-                        return Vec::new();
-                    }
-                }
-                self.npc_combat
-                    .claims
-                    .insert(entity, (peer_lease, seq, slot));
-            }
-            "NCLAIM" if fields.len() >= 5 => {
-                let Some(entity) = sequence(fields[3]) else {
-                    return Vec::new();
-                };
-                let Some(seq) = sequence(fields[4]) else {
-                    return Vec::new();
-                };
-                if let Some(old) = self.npc_combat.claims.get(&entity) {
-                    if old.2 == peer_lease && seq <= old.1 {
-                        return Vec::new();
-                    }
-                }
-                self.npc_combat
-                    .claims
-                    .insert(entity, (peer_lease, seq, slot));
-            }
-            "NACK" if fields.len() >= 5 => {
-                let Some(entity) = sequence(fields[3]) else {
-                    return Vec::new();
-                };
-                self.npc_combat.claims.remove(&entity);
-            }
-            _ => {}
-        }
-        Vec::new()
-    }
-
     /// Produces universe-layer snapshots.
     pub(super) fn snapshots_universe(&mut self, now: f64) -> Vec<(PeerAddress, Vec<u8>)> {
         let mut result = self.snapshots_dock(now);
@@ -1178,36 +1094,6 @@ impl Session {
             ));
         }
         self.identities.cursor = (self.identities.cursor + result.len()) % rows.len();
-        result
-    }
-
-    /// Produces NPC combat snapshots.
-    fn snapshots_npc_combat(&mut self, now: f64) -> Vec<(PeerAddress, Vec<u8>)> {
-        if now < self.npc_combat.next_send {
-            return Vec::new();
-        }
-        self.npc_combat.next_send = now + 0.1;
-        let host = self.peers.get("p1").cloned();
-        let guest = self.peers.get("p2").cloned();
-        let (Some(host), Some(guest)) = (host, guest) else {
-            return Vec::new();
-        };
-        let claims: Vec<(i64, (String, i64, String))> = self
-            .npc_combat
-            .claims
-            .iter()
-            .map(|(entity, value)| (*entity, value.clone()))
-            .collect();
-        let mut result = Vec::new();
-        for (entity, (lease, seq, slot)) in claims {
-            if slot != "p2" {
-                continue;
-            }
-            result.push((
-                host.address,
-                format!("NHP|1|{}|{entity}|{seq}|{lease}", host.lease).into_bytes(),
-            ));
-        }
         result
     }
 

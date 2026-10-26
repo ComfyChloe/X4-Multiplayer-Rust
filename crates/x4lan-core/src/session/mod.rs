@@ -16,6 +16,7 @@ pub mod coop;
 pub mod docking;
 pub mod economy;
 pub mod mission;
+pub mod npc_combat;
 pub mod universe;
 
 use crate::format::py_g;
@@ -166,7 +167,7 @@ pub struct Session {
     pub position_cursor: usize,
     pub cargo: crate::session::universe::CargoTransactions,
     pub identities: crate::session::universe::Identities,
-    pub npc_combat: crate::session::universe::NpcCombat,
+    pub npc_combat: crate::session::npc_combat::NpcCombat,
 
     /// When set, leases are generated deterministically from this counter.
     ///
@@ -357,7 +358,7 @@ impl Session {
             position_cursor: 0,
             cargo: crate::session::universe::CargoTransactions::new(),
             identities: crate::session::universe::Identities::new(),
-            npc_combat: crate::session::universe::NpcCombat::new(),
+            npc_combat: crate::session::npc_combat::NpcCombat::new(),
             deterministic_leases: None,
         }
     }

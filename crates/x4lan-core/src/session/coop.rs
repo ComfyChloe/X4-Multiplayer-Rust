@@ -309,32 +309,34 @@ impl Session {
             }
             if kind == "ACTION" && fields.len() == 7 {
                 let request = fields[4];
-                let mut entity = 0;
-                if let Some(command) = self.commands.get(request) {
-                    if command.ship.is_none() {
-                        if let Some(peer) = self.peers.get(&command.slot) {
-                            entity = self
-                                .crew
-                                .get(&peer.lease)
-                                .map(|crew| crew.1)
-                                .unwrap_or(0);
-                        }
-                        if let Some(command) = self.commands.get_mut(request) {
-                            command.ship = Some(entity);
-                        }
-                    }
-                }
-                let owner = self.owners.get(&entity).cloned().unwrap_or_default();
-                let slot = self
+                // The co-op layer only intercepts an action when the command
+                // is already known and has no ship yet: the action names the
+                // ship to act on. Anything else falls through to the layer
+                // below, which created the command in the first place.
+                let pending = self
                     .commands
                     .get(request)
-                    .map(|command| command.slot.clone())
-                    .unwrap_or_default();
-                if entity != 1 && entity != 2 || owner != slot || self.dead(entity) {
-                    if let Some(command) = self.commands.get_mut(request) {
-                        command.result = "REJECTED".to_string();
+                    .filter(|command| command.ship.is_none())
+                    .cloned();
+                if let Some(command) = pending {
+                    let entity = self
+                        .peers
+                        .get(&command.slot)
+                        .and_then(|peer| self.crew.get(&peer.lease).map(|crew| crew.1))
+                        .unwrap_or(0);
+                    let owner = self.owners.get(&entity).cloned().unwrap_or_default();
+                    let rejected = entity != 1 && entity != 2
+                        || owner != command.slot
+                        || self.dead(entity);
+                    if let Some(stored) = self.commands.get_mut(request) {
+                        stored.ship = Some(entity);
+                        if rejected {
+                            stored.result = "REJECTED".to_string();
+                        }
                     }
-                    return vec![format!("RESULT|1|{request}|REJECTED").into_bytes()];
+                    if rejected {
+                        return vec![format!("RESULT|1|{request}|REJECTED").into_bytes()];
+                    }
                 }
             }
             return result;

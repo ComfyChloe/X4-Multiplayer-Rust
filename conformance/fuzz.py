@@ -31,6 +31,8 @@ BUILD = "test"
 BUBBLE = "bubble"
 SECTOR = "sector_macro"
 ADDRESSES = ["127.0.0.1:10001", "127.0.0.1:10002", "127.0.0.1:10003"]
+NONCE_1 = "1" * 32
+NONCE_2 = "2" * 32
 
 MODES = ["simple", "bubble", "economy", "coop", "dock"]
 
@@ -85,7 +87,7 @@ def random_packets(rng: random.Random, mode: str, count: int) -> list[dict]:
                 lambda: "GARBAGE|1|nonsense",
                 lambda: "",
             ]
-        )
+        )()
         step = {"at": at, "packet": packet, "from": sender}
         if rng.random() < 0.4:
             step["snapshot"] = True
