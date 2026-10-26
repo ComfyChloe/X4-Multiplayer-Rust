@@ -29,8 +29,9 @@
 //! interface.
 
 #![allow(non_camel_case_types)]
+#![allow(non_snake_case)]
 
-use std::ffi::{c_char, c_double, c_int, c_void, CStr};
+use std::ffi::{c_char, c_double, c_int, c_void, CStr, CString};
 use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
 
 /// The opaque Lua interpreter state.
@@ -50,7 +51,6 @@ struct LuaApi {
     checknumber: unsafe extern "C" fn(*mut lua_State, c_int) -> c_double,
     checkudata: unsafe extern "C" fn(*mut lua_State, c_int, *const c_char) -> *mut c_void,
     newmetatable: unsafe extern "C" fn(*mut lua_State, *const c_char) -> c_int,
-    error: unsafe extern "C" fn(*mut lua_State, *const c_char, ...) -> c_int,
     newuserdata: unsafe extern "C" fn(*mut lua_State, usize) -> *mut c_void,
     pushboolean: unsafe extern "C" fn(*mut lua_State, c_int),
     pushnil: unsafe extern "C" fn(*mut lua_State),
@@ -62,85 +62,151 @@ struct LuaApi {
     setmetatable: unsafe extern "C" fn(*mut lua_State, c_int) -> c_int,
     createtable: unsafe extern "C" fn(*mut lua_State, c_int, c_int),
     settop: unsafe extern "C" fn(*mut lua_State, c_int),
+    error: unsafe extern "C" fn(*mut lua_State, c_int) -> c_int,
 }
 
 /// The resolved API, populated once when the module loads.
-static mut LUA_API: Option<LuaApi> = None;
+static LUA_API: std::sync::OnceLock<LuaApi> = std::sync::OnceLock::new();
+
+/// A symbol name, NUL-terminated.
+///
+/// `GetProcAddress` and `dlsym` both read a C string. Passing a Rust byte
+/// slice without its terminator makes them read past the end of the slice
+/// and return a garbage address, which then crashes the host process when
+/// the function is called.
+const fn symbol_name(name: &'static [u8]) -> &'static CStr {
+    // The names below are all NUL-terminated by construction.
+    unsafe { CStr::from_bytes_with_nul_unchecked(name) }
+}
+
+/// The Lua symbols this module needs, as NUL-terminated names.
+const SYMBOLS: [&[u8]; 17] = [
+    b"luaL_checklstring\0",
+    b"luaL_checknumber\0",
+    b"luaL_checkudata\0",
+    b"luaL_newmetatable\0",
+    b"lua_newuserdata\0",
+    b"lua_pushboolean\0",
+    b"lua_pushnil\0",
+    b"lua_pushlstring\0",
+    b"lua_pushcclosure\0",
+    b"lua_pushvalue\0",
+    b"lua_setfield\0",
+    b"lua_getfield\0",
+    b"lua_setmetatable\0",
+    b"lua_createtable\0",
+    b"lua_settop\0",
+    b"lua_error\0",
+    b"lua_gettop\0",
+];
 
 /// Resolves a symbol from the running Lua runtime.
 #[cfg(windows)]
-unsafe fn resolve(name: &[u8]) -> Option<*mut c_void> {
+unsafe fn resolve(name: &CStr) -> Option<*mut c_void> {
     use std::ffi::c_void as void;
-    type GetModuleHandleA = unsafe extern "system" fn(*const c_char) -> *mut void;
-    type GetProcAddress = unsafe extern "system" fn(*mut void, *const c_char) -> *mut void;
 
     extern "system" {
         fn GetModuleHandleA(name: *const c_char) -> *mut void;
         fn GetProcAddress(module: *mut void, name: *const c_char) -> *mut void;
+        fn K32EnumProcessModules(
+            process: *mut void,
+            modules: *mut *mut void,
+            size: u32,
+            needed: *mut u32,
+        ) -> c_int;
+        fn GetCurrentProcess() -> *mut void;
     }
-    let _ = (GetModuleHandleA as GetModuleHandleA, GetProcAddress as GetProcAddress);
 
-    // The game ships LuaJIT as `lua51_64.dll` on Windows.
-    let mut module = GetModuleHandleA(b"lua51_64.dll\0".as_ptr() as *const c_char);
+    let mut module = GetModuleHandleA(c"lua51_64.dll".as_ptr());
     if module.is_null() {
         module = GetModuleHandleA(std::ptr::null());
     }
     if module.is_null() {
         return None;
     }
-    Some(GetProcAddress(module, name.as_ptr() as *const c_char))
+    let pointer = GetProcAddress(module, name.as_ptr());
+    if !pointer.is_null() {
+        return Some(pointer);
+    }
+
+    // The runtime may live in a differently named module. Scan the process's
+    // modules for one that exports the symbol.
+    let mut modules: Vec<*mut void> = Vec::new();
+    let mut needed: u32 = 0;
+    let process = GetCurrentProcess();
+    if K32EnumProcessModules(process, std::ptr::null_mut(), 0, &mut needed) == 0 && needed > 0 {
+        let count = (needed as usize) / std::mem::size_of::<*mut void>();
+        modules.resize(count, std::ptr::null_mut());
+        if K32EnumProcessModules(
+            process,
+            modules.as_mut_ptr(),
+            needed,
+            &mut needed,
+        ) != 0
+        {
+            for candidate in modules {
+                if candidate.is_null() {
+                    continue;
+                }
+                let pointer = GetProcAddress(candidate, name.as_ptr());
+                if !pointer.is_null() {
+                    return Some(pointer);
+                }
+            }
+        }
+    }
+    None
 }
 
 /// Resolves a symbol from the running Lua runtime.
 #[cfg(unix)]
-unsafe fn resolve(name: &[u8]) -> Option<*mut c_void> {
+unsafe fn resolve(name: &CStr) -> Option<*mut c_void> {
     use std::os::raw::c_char as raw_char;
 
     extern "C" {
         fn dlsym(handle: *mut c_void, symbol: *const raw_char) -> *mut c_void;
     }
     const RTLD_DEFAULT: *mut c_void = 0 as *mut c_void;
-    Some(dlsym(RTLD_DEFAULT, name.as_ptr() as *const raw_char))
+    Some(dlsym(RTLD_DEFAULT, name.as_ptr()))
 }
 
 /// Loads the Lua API, or returns false if the runtime is not present.
 unsafe fn load_lua_api() -> bool {
     macro_rules! symbol {
-        ($name:literal) => {
-            match resolve($name.as_bytes()) {
+        ($index:literal) => {
+            match resolve(symbol_name(SYMBOLS[$index])) {
                 Some(pointer) => std::mem::transmute(pointer),
                 None => return false,
             }
         };
     }
     let api = LuaApi {
-        checklstring: symbol!("luaL_checklstring"),
-        checknumber: symbol!("luaL_checknumber"),
-        checkudata: symbol!("luaL_checkudata"),
-        newmetatable: symbol!("luaL_newmetatable"),
-        error: symbol!("luaL_error"),
-        newuserdata: symbol!("lua_newuserdata"),
-        pushboolean: symbol!("lua_pushboolean"),
-        pushnil: symbol!("lua_pushnil"),
-        pushlstring: symbol!("lua_pushlstring"),
-        pushcclosure: symbol!("lua_pushcclosure"),
-        pushvalue: symbol!("lua_pushvalue"),
-        setfield: symbol!("lua_setfield"),
-        getfield: symbol!("lua_getfield"),
-        setmetatable: symbol!("lua_setmetatable"),
-        createtable: symbol!("lua_createtable"),
-        settop: symbol!("lua_settop"),
+        checklstring: symbol!(0),
+        checknumber: symbol!(1),
+        checkudata: symbol!(2),
+        newmetatable: symbol!(3),
+        newuserdata: symbol!(4),
+        pushboolean: symbol!(5),
+        pushnil: symbol!(6),
+        pushlstring: symbol!(7),
+        pushcclosure: symbol!(8),
+        pushvalue: symbol!(9),
+        setfield: symbol!(10),
+        getfield: symbol!(11),
+        setmetatable: symbol!(12),
+        createtable: symbol!(13),
+        settop: symbol!(14),
+        error: symbol!(15),
     };
-    LUA_API = Some(api);
-    true
+    LUA_API.set(api).is_ok()
 }
 
 /// Returns the resolved Lua API.
 ///
 /// # Safety
 /// Only callable once the module has been loaded.
-unsafe fn api() -> &'static LuaApi {
-    LUA_API.as_ref().expect("the Lua API is resolved at load time")
+fn api() -> &'static LuaApi {
+    LUA_API.get().expect("the Lua API is resolved at load time")
 }
 
 // ---------------------------------------------------------------------------
@@ -228,6 +294,19 @@ unsafe fn close_raw(handle: c_int) {
 // Lua bindings
 // ---------------------------------------------------------------------------
 
+/// Raises a Lua error with a fixed message.
+///
+/// The message is pushed as a string and `lua_error` is called, rather than
+/// using `luaL_error`, because `luaL_error` treats its argument as a
+/// `printf` format string. A message containing a `%` would then be read as
+/// a format specification.
+unsafe fn raise(L: *mut lua_State, message: &str) {
+    let lua = api();
+    let text = CString::new(message).unwrap_or_else(|_| CString::new("error").expect("literal"));
+    (lua.pushlstring)(L, text.as_ptr(), text.as_bytes().len());
+    (lua.error)(L, 1);
+}
+
 /// `socket:send(payload) -> boolean`
 ///
 /// Sends the whole payload, or returns false if the socket is closed or the
@@ -294,39 +373,26 @@ unsafe extern "C" fn net_open(L: *mut lua_State) -> c_int {
     let host = (lua.checklstring)(L, 1, &mut length);
     let port = (lua.checknumber)(L, 2);
     if !(port >= 1.0 && port <= 65535.0) || port != (port as i32) as f64 {
-        (lua.error)(
-            L,
-            b"UDP port must be an integer from 1 to 65535\0".as_ptr() as *const c_char,
-        );
+        raise(L, "UDP port must be an integer from 1 to 65535");
         return 0;
     }
     if length == 0 || length >= 16 {
-        (lua.error)(
-            L,
-            b"host must be a numeric IPv4 address\0".as_ptr() as *const c_char,
-        );
+        raise(L, "host must be a numeric IPv4 address");
         return 0;
     }
     let Ok(host_text) = CStr::from_ptr(host).to_str() else {
-        (lua.error)(
-            L,
-            b"host must be a numeric IPv4 address\0".as_ptr() as *const c_char,
-        );
+        raise(L, "host must be a numeric IPv4 address");
         return 0;
     };
     if host_text.len() != length {
-        (lua.error)(
-            L,
-            b"host must be a numeric IPv4 address\0".as_ptr() as *const c_char,
-        );
+        raise(L, "host must be a numeric IPv4 address");
         return 0;
     }
 
     let handle = match open_socket(host_text, port as u16) {
         Ok(handle) => handle,
         Err(message) => {
-            let message = format!("{message}\0");
-            (lua.error)(L, message.as_ptr() as *const c_char);
+            raise(L, &message);
             return 0;
         }
     };
@@ -392,7 +458,7 @@ fn receive_bytes(handle: c_int, buffer: &mut [u8]) -> isize {
 }
 
 #[cfg(windows)]
-fn send_bytes(handle: cint_type, bytes: &[u8]) -> isize {
+fn send_bytes(handle: c_int, bytes: &[u8]) -> isize {
     extern "system" {
         fn send(socket: usize, buf: *const u8, len: c_int, flags: c_int) -> c_int;
     }
@@ -406,7 +472,3 @@ fn receive_bytes(handle: c_int, buffer: &mut [u8]) -> isize {
     }
     unsafe { recv(handle as usize, buffer.as_mut_ptr(), buffer.len() as c_int, 0) as isize }
 }
-
-/// The Windows socket handle type.
-#[cfg(windows)]
-type cint_type = c_int;
