@@ -171,34 +171,48 @@ unsafe fn resolve(name: &CStr) -> Option<*mut c_void> {
 }
 
 /// Loads the Lua API, or returns false if the runtime is not present.
+///
+/// The API is resolved once and kept. A second call must succeed rather
+/// than fail, because the module may legitimately be loaded more than once
+/// in a process: `package.loadlib` calls the entry point afresh for every
+/// new Lua state, and each call has to hand back a working module.
 unsafe fn load_lua_api() -> bool {
-    macro_rules! symbol {
-        ($index:literal) => {
-            match resolve(symbol_name(SYMBOLS[$index])) {
-                Some(pointer) => std::mem::transmute(pointer),
-                None => return false,
-            }
-        };
+    // Resolve every symbol before touching the cache, so a partial
+    // resolution cannot leave the module half-initialised.
+    let mut pointers: [*mut c_void; SYMBOLS.len()] = [std::ptr::null_mut(); SYMBOLS.len()];
+    for (index, name) in SYMBOLS.iter().enumerate() {
+        match resolve(symbol_name(name)) {
+            Some(pointer) => pointers[index] = pointer,
+            None => return false,
+        }
     }
-    let api = LuaApi {
-        checklstring: symbol!(0),
-        checknumber: symbol!(1),
-        checkudata: symbol!(2),
-        newmetatable: symbol!(3),
-        newuserdata: symbol!(4),
-        pushboolean: symbol!(5),
-        pushnil: symbol!(6),
-        pushlstring: symbol!(7),
-        pushcclosure: symbol!(8),
-        pushvalue: symbol!(9),
-        setfield: symbol!(10),
-        getfield: symbol!(11),
-        setmetatable: symbol!(12),
-        createtable: symbol!(13),
-        settop: symbol!(14),
-        error: symbol!(15),
-    };
-    LUA_API.set(api).is_ok()
+
+    LUA_API.get_or_init(|| {
+        macro_rules! symbol {
+            ($index:literal) => {
+                std::mem::transmute(pointers[$index])
+            };
+        }
+        LuaApi {
+            checklstring: symbol!(0),
+            checknumber: symbol!(1),
+            checkudata: symbol!(2),
+            newmetatable: symbol!(3),
+            newuserdata: symbol!(4),
+            pushboolean: symbol!(5),
+            pushnil: symbol!(6),
+            pushlstring: symbol!(7),
+            pushcclosure: symbol!(8),
+            pushvalue: symbol!(9),
+            setfield: symbol!(10),
+            getfield: symbol!(11),
+            setmetatable: symbol!(12),
+            createtable: symbol!(13),
+            settop: symbol!(14),
+            error: symbol!(15),
+        }
+    });
+    true
 }
 
 /// Returns the resolved Lua API.
