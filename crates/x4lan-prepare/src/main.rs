@@ -21,7 +21,6 @@
 //! layout needs no extra flags.
 
 use std::fs;
-use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -120,7 +119,11 @@ fn run(options: &Options) -> Result<(), String> {
             .map_err(|error| format!("could not write the config for {slot}: {error}"))?;
     }
 
-    println!("Prepared {} and {}", options.output.join("p1").display(), options.output.join("p2").display());
+    println!(
+        "Prepared {} and {}",
+        options.output.join("p1").display(),
+        options.output.join("p2").display()
+    );
     println!("No game files were modified.");
     Ok(())
 }
@@ -140,7 +143,11 @@ fn copy_tree(source: &Path, target: &Path) -> Result<(), String> {
             copy_tree(&path, &destination)?;
         } else {
             fs::copy(&path, &destination).map_err(|error| {
-                format!("could not copy {} to {}: {error}", path.display(), destination.display())
+                format!(
+                    "could not copy {} to {}: {error}",
+                    path.display(),
+                    destination.display()
+                )
             })?;
         }
     }
@@ -183,7 +190,8 @@ fn default_extension_path() -> PathBuf {
     // anywhere inside the workspace.
     let here = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
     for ancestor in here.ancestors() {
-        let candidate = ancestor.join("X4-Multiplayer-Source")
+        let candidate = ancestor
+            .join("X4-Multiplayer-Source")
             .join("extension")
             .join(EXTENSION_NAME);
         if candidate.is_dir() {

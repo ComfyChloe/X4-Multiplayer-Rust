@@ -14,14 +14,27 @@ pub const MAX_MONEY: i64 = 1_000_000_000_000;
 
 /// Terminal order results.
 const RESULTS: [&str; 11] = [
-    "OK", "REJECTED", "STOCK", "FUNDS", "CAPACITY", "PRICE", "DOCK", "BUSY", "PARTIAL", "UNCERTAIN",
+    "OK",
+    "REJECTED",
+    "STOCK",
+    "FUNDS",
+    "CAPACITY",
+    "PRICE",
+    "DOCK",
+    "BUSY",
+    "PARTIAL",
+    "UNCERTAIN",
     "UNSUPPORTED",
 ];
+
+/// A pending part: the revision, the time it arrived, the expected part count
+/// and the parts seen so far.
+type PendingPart = (i64, (f64, i64, Vec<Option<String>>));
 
 /// Reassembles a market snapshot that arrives in numbered parts.
 #[derive(Debug, Clone, Default)]
 pub struct Assembly {
-    pending: Vec<(i64, (f64, i64, Vec<Option<String>>))>,
+    pending: Vec<PendingPart>,
     revision: i64,
 }
 
@@ -55,16 +68,11 @@ impl Assembly {
             if self.pending.len() >= 4 {
                 self.pending.remove(0);
             }
-            self.pending.push((
-                revision,
-                (now, total, vec![None; total as usize]),
-            ));
+            self.pending
+                .push((revision, (now, total, vec![None; total as usize])));
         }
         let value = {
-            let Some((_, entry)) = self.pending.iter_mut().find(|(rev, _)| *rev == revision)
-            else {
-                return None;
-            };
+            let (_, entry) = self.pending.iter_mut().find(|(rev, _)| *rev == revision)?;
             let expected = entry.1;
             let parts = &mut entry.2;
             if expected != total {
@@ -87,17 +95,19 @@ impl Assembly {
             }
             value
         };
-        if parse_snapshot(&value).is_none() {
-            return None;
-        }
+        parse_snapshot(&value)?;
         self.revision = revision;
         self.pending.retain(|(rev, _)| *rev > revision);
         Some(value)
     }
 }
 
+/// A ware and its quantities: volume, the two players' holdings, the two
+/// markets' stock, and the bid, ask and limit prices.
+type WareTable = Vec<(String, Vec<i64>)>;
+
 /// Parses a market snapshot payload into balances and ware rows.
-pub fn parse_snapshot(payload: &str) -> Option<(Vec<i64>, Vec<(String, Vec<i64>)>)> {
+pub fn parse_snapshot(payload: &str) -> Option<(Vec<i64>, WareTable)> {
     let rows: Vec<&str> = payload.split(';').collect();
     let funds: Vec<&str> = rows[0].split(',').collect();
     if funds.len() != 5 || funds[0] != "M" {
@@ -219,7 +229,11 @@ impl Session {
                 ) else {
                     return Vec::new();
                 };
-                let host_lease = self.peers.get("p1").map(|p| p.lease.clone()).unwrap_or_default();
+                let host_lease = self
+                    .peers
+                    .get("p1")
+                    .map(|p| p.lease.clone())
+                    .unwrap_or_default();
                 if self.economy_owner.as_deref() != Some(host_lease.as_str()) {
                     self.economy_owner = Some(host_lease);
                     self.assembly = super::economy::Assembly::new();
@@ -236,9 +250,16 @@ impl Session {
                 if parse_lines(lines).is_none() {
                     return Vec::new();
                 }
-                let peer_lease = self.peers.get(&slot).map(|p| p.lease.clone()).unwrap_or_default();
+                let peer_lease = self
+                    .peers
+                    .get(&slot)
+                    .map(|p| p.lease.clone())
+                    .unwrap_or_default();
                 if let Some(old) = self.orders.get(request).cloned() {
-                    if old.slot != slot || old.owner != owner || old.market != market || old.lines != lines
+                    if old.slot != slot
+                        || old.owner != owner
+                        || old.market != market
+                        || old.lines != lines
                     {
                         return Vec::new();
                     }
@@ -276,7 +297,11 @@ impl Session {
             "ORDER_DONE" if fields.len() == 5 && slot == "p1" && RESULTS.contains(&fields[4]) => {
                 if let Some(order) = self.orders.get_mut(fields[3]) {
                     if order.result == "PENDING" {
-                        let peer_lease = self.peers.get("p1").map(|p| p.lease.clone()).unwrap_or_default();
+                        let peer_lease = self
+                            .peers
+                            .get("p1")
+                            .map(|p| p.lease.clone())
+                            .unwrap_or_default();
                         if order.owner == peer_lease {
                             order.result = fields[4].to_string();
                         }
@@ -287,8 +312,16 @@ impl Session {
                 let Some(seq) = sequence(fields[3]) else {
                     return Vec::new();
                 };
-                let lease = self.peers.get(&slot).map(|p| p.lease.clone()).unwrap_or_default();
-                let old = self.docks.get(&lease).map(|value| (value.0, value.1.clone())).unwrap_or((-1, String::new()));
+                let lease = self
+                    .peers
+                    .get(&slot)
+                    .map(|p| p.lease.clone())
+                    .unwrap_or_default();
+                let old = self
+                    .docks
+                    .get(&lease)
+                    .map(|value| (value.0, value.1.clone()))
+                    .unwrap_or((-1, String::new()));
                 if seq > old.0 {
                     self.docks.insert(lease, (seq, fields[4].to_string()));
                 }
@@ -352,11 +385,8 @@ impl Session {
                     if let Some((seq, market)) = self.docks.get(&other.lease) {
                         result.push((
                             peer.address,
-                            format!(
-                                "DOCKSTATE|1|{}|{}|{seq}|{market}",
-                                peer.lease, other.lease
-                            )
-                            .into_bytes(),
+                            format!("DOCKSTATE|1|{}|{}|{seq}|{market}", peer.lease, other.lease)
+                                .into_bytes(),
                         ));
                     }
                 }

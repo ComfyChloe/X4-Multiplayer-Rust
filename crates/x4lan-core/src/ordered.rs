@@ -17,7 +17,9 @@ pub struct OrderedMap<K, V> {
 
 impl<K: PartialEq, V> OrderedMap<K, V> {
     pub fn new() -> Self {
-        Self { entries: Vec::new() }
+        Self {
+            entries: Vec::new(),
+        }
     }
 
     pub fn len(&self) -> usize {

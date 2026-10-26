@@ -34,7 +34,11 @@ pub fn py_g(value: f64, precision: usize) -> String {
         return "nan".to_string();
     }
     if value.is_infinite() {
-        return if value < 0.0 { "-inf".into() } else { "inf".into() };
+        return if value < 0.0 {
+            "-inf".into()
+        } else {
+            "inf".into()
+        };
     }
 
     let precision = precision.max(1);
@@ -47,7 +51,9 @@ pub fn py_g(value: f64, precision: usize) -> String {
     let (mantissa, exponent) = scientific
         .split_once('e')
         .expect("Rust always renders an exponent for the LowerExp formatter");
-    let exponent: i32 = exponent.parse().expect("Rust always renders a decimal exponent");
+    let exponent: i32 = exponent
+        .parse()
+        .expect("Rust always renders a decimal exponent");
     let mantissa_digits: Vec<char> = mantissa.chars().filter(|c| c.is_ascii_digit()).collect();
     let digits: String = mantissa_digits.iter().collect();
 
@@ -67,7 +73,12 @@ pub fn py_g(value: f64, precision: usize) -> String {
             if fractional > 0 {
                 out.push('.');
                 for index in 0..fractional as usize {
-                    out.push(mantissa_digits.get(integer_len + index).copied().unwrap_or('0'));
+                    out.push(
+                        mantissa_digits
+                            .get(integer_len + index)
+                            .copied()
+                            .unwrap_or('0'),
+                    );
                 }
             }
         } else {
@@ -196,7 +207,8 @@ mod tests {
         assert_eq!(py_float("1_000"), Some(1000.0));
         assert_eq!(py_float("1e3"), Some(1000.0));
         assert_eq!(py_float("inf"), Some(f64::INFINITY));
-        assert_eq!(py_float("NaN"), Some(f64::NAN));
+        // NaN is never equal to itself, so it needs its own check.
+        assert!(py_float("NaN").is_some_and(|value| value.is_nan()));
         assert_eq!(py_float(""), None);
         assert_eq!(py_float("abc"), None);
         assert_eq!(py_float("_1"), None);

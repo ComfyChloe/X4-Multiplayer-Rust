@@ -279,6 +279,18 @@ pub struct Position {
 }
 
 impl Session {
+    /// Checks that a mode's build label is usable.
+    ///
+    /// World synchronisation uses a distinct `world1-` build label, because a
+    /// shared universe and a plain session are not interchangeable. The
+    /// reference refuses to start a universe session without one.
+    pub fn validate_build(mode: Mode, build: &str) -> Result<(), String> {
+        if mode == Mode::Universe && !build.starts_with("world1-") {
+            return Err("world synchronization requires a world1- build label".to_string());
+        }
+        Ok(())
+    }
+
     /// Creates a session for the given mode.
     pub fn new(mode: Mode, token: &str, build: &str, bubble: &str) -> Self {
         let mut owners = OrderedMap::new();
@@ -377,8 +389,7 @@ impl Session {
 
     /// Returns the slot name of a peer, if the lease and address match.
     pub fn peer_slot(&self, lease: &str, address: PeerAddress) -> Option<String> {
-        self.peer_for(lease, address)
-            .map(|(slot, _)| slot.clone())
+        self.peer_for(lease, address).map(|(slot, _)| slot.clone())
     }
 
     /// Releases peers whose lease has expired.
@@ -412,7 +423,8 @@ impl Session {
             .collect();
         for slot in expired {
             if let Some(peer) = self.peers.remove(&slot) {
-                self.resumable.insert(slot.clone(), (peer.clone(), self.sector.clone()));
+                self.resumable
+                    .insert(slot.clone(), (peer.clone(), self.sector.clone()));
                 self.retired.push((slot, peer.nonce));
                 if self.retired.len() > 64 {
                     self.retired.drain(0..self.retired.len() - 64);
@@ -482,7 +494,9 @@ impl Session {
                 }
                 let peer = self.peers.get(&slot.to_string()).cloned();
                 let saved = self.resumable.get(&slot.to_string()).cloned();
-                let candidate = peer.clone().or_else(|| saved.as_ref().map(|(p, _)| p.clone()));
+                let candidate = peer
+                    .clone()
+                    .or_else(|| saved.as_ref().map(|(p, _)| p.clone()));
                 let Some(candidate) = candidate else {
                     // A new relay cannot prove this is the same world. Do not
                     // silently start a second economy over an existing game.
@@ -515,8 +529,9 @@ impl Session {
                 vec![format!("WELCOME|1|{nonce}|{lease}|{TICK_HZ}").into_bytes()]
             }
             "HELLO" if fields.len() == 8 => {
-                let (token, build, sector, bubble, slot, nonce) =
-                    (fields[2], fields[3], fields[4], fields[5], fields[6], fields[7]);
+                let (token, build, sector, bubble, slot, nonce) = (
+                    fields[2], fields[3], fields[4], fields[5], fields[6], fields[7],
+                );
                 if !constant_time_eq(token.as_bytes(), self.token.as_bytes()) {
                     return Vec::new();
                 }
@@ -550,7 +565,11 @@ impl Session {
                     self.resumable.remove(&slot.to_string());
                     self.sector = Some(sector.to_string());
                 }
-                let lease = self.peers.get(&slot.to_string()).map(|p| p.lease.clone()).unwrap_or_default();
+                let lease = self
+                    .peers
+                    .get(&slot.to_string())
+                    .map(|p| p.lease.clone())
+                    .unwrap_or_default();
                 if let Some(peer) = self.peers.get_mut(&slot.to_string()) {
                     peer.last_seen = now;
                 }
@@ -563,7 +582,8 @@ impl Session {
                 }
                 let lease = fields[2];
                 let found = self.peers.iter().find(|(_, peer)| {
-                    peer.address == address && constant_time_eq(peer.lease.as_bytes(), lease.as_bytes())
+                    peer.address == address
+                        && constant_time_eq(peer.lease.as_bytes(), lease.as_bytes())
                 });
                 let Some((slot, _)) = found else {
                     return Vec::new();
@@ -638,9 +658,7 @@ impl Session {
             let other_slot = if slot == "p1" { "p2" } else { "p1" };
             let remote = self.peers.get(other_slot);
             let packet = match remote {
-                Some(remote)
-                    if remote.pose.is_some() && now - remote.state_at < STATE_SECONDS =>
-                {
+                Some(remote) if remote.pose.is_some() && now - remote.state_at < STATE_SECONDS => {
                     let pose = remote.pose.unwrap();
                     let rendered: Vec<String> = pose.iter().map(|v| py_g(*v, 9)).collect();
                     format!(

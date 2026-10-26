@@ -137,13 +137,7 @@ unsafe fn resolve(name: &CStr) -> Option<*mut c_void> {
     if K32EnumProcessModules(process, std::ptr::null_mut(), 0, &mut needed) == 0 && needed > 0 {
         let count = (needed as usize) / std::mem::size_of::<*mut void>();
         modules.resize(count, std::ptr::null_mut());
-        if K32EnumProcessModules(
-            process,
-            modules.as_mut_ptr(),
-            needed,
-            &mut needed,
-        ) != 0
-        {
+        if K32EnumProcessModules(process, modules.as_mut_ptr(), needed, &mut needed) != 0 {
             for candidate in modules {
                 if candidate.is_null() {
                     continue;
@@ -189,27 +183,51 @@ unsafe fn load_lua_api() -> bool {
 
     LUA_API.get_or_init(|| {
         macro_rules! symbol {
-            ($index:literal) => {
-                std::mem::transmute(pointers[$index])
+            ($index:literal, $ty:ty) => {
+                std::mem::transmute::<*mut c_void, $ty>(pointers[$index])
             };
         }
         LuaApi {
-            checklstring: symbol!(0),
-            checknumber: symbol!(1),
-            checkudata: symbol!(2),
-            newmetatable: symbol!(3),
-            newuserdata: symbol!(4),
-            pushboolean: symbol!(5),
-            pushnil: symbol!(6),
-            pushlstring: symbol!(7),
-            pushcclosure: symbol!(8),
-            pushvalue: symbol!(9),
-            setfield: symbol!(10),
-            getfield: symbol!(11),
-            setmetatable: symbol!(12),
-            createtable: symbol!(13),
-            settop: symbol!(14),
-            error: symbol!(15),
+            checklstring: symbol!(
+                0,
+                unsafe extern "C" fn(*mut lua_State, c_int, *mut usize) -> *const c_char
+            ),
+            checknumber: symbol!(1, unsafe extern "C" fn(*mut lua_State, c_int) -> c_double),
+            checkudata: symbol!(
+                2,
+                unsafe extern "C" fn(*mut lua_State, c_int, *const c_char) -> *mut c_void
+            ),
+            newmetatable: symbol!(
+                3,
+                unsafe extern "C" fn(*mut lua_State, *const c_char) -> c_int
+            ),
+            newuserdata: symbol!(
+                4,
+                unsafe extern "C" fn(*mut lua_State, usize) -> *mut c_void
+            ),
+            pushboolean: symbol!(5, unsafe extern "C" fn(*mut lua_State, c_int)),
+            pushnil: symbol!(6, unsafe extern "C" fn(*mut lua_State)),
+            pushlstring: symbol!(
+                7,
+                unsafe extern "C" fn(*mut lua_State, *const c_char, usize)
+            ),
+            pushcclosure: symbol!(
+                8,
+                unsafe extern "C" fn(*mut lua_State, lua_CFunction, c_int)
+            ),
+            pushvalue: symbol!(9, unsafe extern "C" fn(*mut lua_State, c_int)),
+            setfield: symbol!(
+                10,
+                unsafe extern "C" fn(*mut lua_State, c_int, *const c_char)
+            ),
+            getfield: symbol!(
+                11,
+                unsafe extern "C" fn(*mut lua_State, c_int, *const c_char)
+            ),
+            setmetatable: symbol!(12, unsafe extern "C" fn(*mut lua_State, c_int) -> c_int),
+            createtable: symbol!(13, unsafe extern "C" fn(*mut lua_State, c_int, c_int)),
+            settop: symbol!(14, unsafe extern "C" fn(*mut lua_State, c_int)),
+            error: symbol!(15, unsafe extern "C" fn(*mut lua_State, c_int) -> c_int),
         }
     });
     true
@@ -251,7 +269,9 @@ struct Connection {
 
 /// Creates and connects a non-blocking UDP socket.
 fn open_socket(host: &str, port: u16) -> Result<c_int, String> {
-    let address: Ipv4Addr = host.parse().map_err(|_| "invalid IPv4 address".to_string())?;
+    let address: Ipv4Addr = host
+        .parse()
+        .map_err(|_| "invalid IPv4 address".to_string())?;
     let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0))
         .map_err(|error| format!("could not bind a local socket: {error}"))?;
     socket
@@ -386,7 +406,7 @@ unsafe extern "C" fn net_open(L: *mut lua_State) -> c_int {
     let mut length: usize = 0;
     let host = (lua.checklstring)(L, 1, &mut length);
     let port = (lua.checknumber)(L, 2);
-    if !(port >= 1.0 && port <= 65535.0) || port != (port as i32) as f64 {
+    if !(1.0..=65535.0).contains(&port) || port != (port as i32) as f64 {
         raise(L, "UDP port must be an integer from 1 to 65535");
         return 0;
     }
@@ -484,5 +504,12 @@ fn receive_bytes(handle: c_int, buffer: &mut [u8]) -> isize {
     extern "system" {
         fn recv(socket: usize, buf: *mut u8, len: c_int, flags: c_int) -> c_int;
     }
-    unsafe { recv(handle as usize, buffer.as_mut_ptr(), buffer.len() as c_int, 0) as isize }
+    unsafe {
+        recv(
+            handle as usize,
+            buffer.as_mut_ptr(),
+            buffer.len() as c_int,
+            0,
+        ) as isize
+    }
 }

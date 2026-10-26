@@ -57,6 +57,12 @@ pub struct NpcCombat {
     pub next_send: f64,
 }
 
+impl Default for NpcCombat {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NpcCombat {
     pub fn new() -> Self {
         Self {
@@ -102,13 +108,19 @@ impl NpcCombat {
 
     /// Whether an NPC's state is current and usable.
     fn current(&self, entity: i64, generation: i64, now: f64, live: bool) -> bool {
-        let (Some(state), Some(descriptor)) = (self.states.get(&entity), self.descriptors.get(&entity))
+        let (Some(state), Some(descriptor)) =
+            (self.states.get(&entity), self.descriptors.get(&entity))
         else {
             return false;
         };
         state.generation == generation
             && now - state.at < FRESH
-            && state.descriptor == (descriptor.sector.clone(), descriptor.macro_name.clone(), descriptor.owner.clone())
+            && state.descriptor
+                == (
+                    descriptor.sector.clone(),
+                    descriptor.macro_name.clone(),
+                    descriptor.owner.clone(),
+                )
             && (!live || (descriptor.active && state.alive))
     }
 }
@@ -153,7 +165,11 @@ impl Session {
         let Some(slot) = self.peer_slot(fields[2], address) else {
             return Vec::new();
         };
-        let peer_lease = self.peers.get(&slot).map(|p| p.lease.clone()).unwrap_or_default();
+        let peer_lease = self
+            .peers
+            .get(&slot)
+            .map(|p| p.lease.clone())
+            .unwrap_or_default();
         let host = self.peers.get("p1").cloned();
         let Some(host) = host else {
             return Vec::new();
@@ -203,7 +219,8 @@ impl Session {
                 code.to_string(),
                 macro_name.to_string(),
                 owner.to_string(),
-            );            let old = self.npc_combat.states.get(&entity).cloned();
+            );
+            let old = self.npc_combat.states.get(&entity).cloned();
             if let Some(old) = &old {
                 if seq <= old.sequence
                     || generation != old.generation
@@ -230,14 +247,22 @@ impl Session {
                 },
             );
         } else if fields[0] == "NCLAIM" && slot == "p2" && fields.len() == 11 {
-            let (Some(entity), Some(generation), Some(shooter), Some(shooter_generation), Some(seq), Some(hits)) = (
+            let (
+                Some(entity),
+                Some(generation),
+                Some(shooter),
+                Some(shooter_generation),
+                Some(seq),
+                Some(hits),
+            ) = (
                 sequence(fields[4]),
                 sequence(fields[5]),
                 sequence(fields[6]),
                 sequence(fields[7]),
                 sequence(fields[8]),
                 sequence(fields[9]),
-            ) else {
+            )
+            else {
                 return Vec::new();
             };
             if seq == 0 || hits == 0 || hits > 1_000_000 {
@@ -264,7 +289,13 @@ impl Session {
             if interest_sector != state.descriptor.0 {
                 return Vec::new();
             }
-            let key = (peer_lease.clone(), entity, generation, shooter, shooter_generation);
+            let key = (
+                peer_lease.clone(),
+                entity,
+                generation,
+                shooter,
+                shooter_generation,
+            );
             let old = self.npc_combat.claims.get(&key).cloned();
             if let Some(old) = &old {
                 if seq <= old.sequence || hits < old.hits || fields[10] != old.digest {
@@ -284,13 +315,20 @@ impl Session {
                 },
             );
         } else if fields[0] == "NACK" && slot == "p1" && fields.len() == 10 {
-            let (Some(entity), Some(generation), Some(shooter), Some(shooter_generation), Some(count)) = (
+            let (
+                Some(entity),
+                Some(generation),
+                Some(shooter),
+                Some(shooter_generation),
+                Some(count),
+            ) = (
                 sequence(fields[5]),
                 sequence(fields[6]),
                 sequence(fields[7]),
                 sequence(fields[8]),
                 sequence(fields[9]),
-            ) else {
+            )
+            else {
                 return Vec::new();
             };
             let key = (
@@ -339,9 +377,7 @@ impl Session {
             .cloned()
             .collect();
         // The modulo is applied before indexing, including after a fleet shrinks.
-        let budget = states
-            .len()
-            .min(32.max(256.min((states.len() + 9) / 10)));
+        let budget = states.len().min(32.max(256.min(states.len().div_ceil(10))));
         for offset in 0..budget {
             let state = &states[(self.npc_combat.cursor + offset) % states.len()];
             result.push((
@@ -381,12 +417,8 @@ impl Session {
             if claim.ack < claim.hits {
                 result.push((
                     host.address,
-                    format!(
-                        "NCLAIM|1|{}|{lease}|{}",
-                        host.lease,
-                        claim.fields.join("|")
-                    )
-                    .into_bytes(),
+                    format!("NCLAIM|1|{}|{lease}|{}", host.lease, claim.fields.join("|"))
+                        .into_bytes(),
                 ));
             }
         }

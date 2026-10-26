@@ -36,6 +36,7 @@ which server it is talking to.
 | `x4lan-core` | Protocol, validation and the session state machine |
 | `x4lan-relay` | The dedicated server binary |
 | `x4lan-native` | The Lua UDP module, replacing `native/net.c` |
+| `x4lan-prepare` | Prepares the two client folders for a session |
 | `x4lan-conformance` | Differential harness against the Python reference |
 
 The protocol layers mirror the reference's class hierarchy:
@@ -64,6 +65,7 @@ cargo build --workspace --release
 Produces:
 
 - `target/release/x4lan-relay` — the server
+- `target/release/x4lan-prepare` — the session preparation tool
 - `target/release/x4lan_net.dll` (Windows) or `libx4lan_net.so` (Linux) —
   the native Lua module
 
@@ -72,6 +74,40 @@ requires **Protected UI mode** to be disabled in X4's settings. The module
 resolves every Lua symbol from the already-loaded interpreter at load time
 rather than linking against a Lua library, so it uses the game's own runtime
 rather than a second copy.
+
+The game's Lua extension looks for the module under a fixed name —
+`x4lan_net_64.dll` on Windows and `x4lan_net.so` on Linux — so the built
+module is copied to that name before it is installed alongside the
+extension. Cargo's own naming (`x4lan_net.dll`, `libx4lan_net.so`) does not
+match.
+
+---
+
+## Why Rust, and why only half of it
+
+X4's modding stack decides this, and it is not a matter of taste.
+
+**The game-side half must stay Lua.** X4 runs its own embedded LuaJIT 2.1
+and a Mission Director XML engine inside the game process. The extension's
+Lua and XML are not a choice — they are the only thing the game will load.
+Rewriting them in Rust would mean writing a native extension against
+Egosoft's closed-source engine, which is a different project with a
+different risk profile.
+
+**The server half is the right thing to rewrite in Rust.** The reference
+implementation is a Python package, and each of its installers bundles a
+complete CPython runtime: the Windows package embeds a 3.14.8 interpreter,
+the Linux package unpacks a standalone build, and both are verified against
+published SHA-256 digests at install time. A Rust build removes that
+dependency, the interpreter's start-up cost, and the platform-specific
+launcher scripts, and leaves one static binary per platform.
+
+The protocol does not change. The game-side Lua cannot tell which server it
+is talking to — which is exactly what the conformance harness proves.
+
+The other candidate language was C++, on the strength of the
+`X4Native` framework. That is the right tool for a *native extension inside
+the game*, which is a different problem from the one here.
 
 ---
 
@@ -136,6 +172,36 @@ two transcripts and prints the first divergence.
 
 Current status: **20 scenarios and 150 fuzz iterations across five seeds pass
 with byte-identical transcripts.**
+
+### The other tests
+
+The conformance harness proves the *server* matches the reference. These three
+prove the parts that carry the risk of running inside the game.
+
+| Test | What it proves |
+|---|---|
+| `tests/test_end_to_end.py` | The actual `client.lua` and `transport.lua` from the extension, driving a real LuaJIT 2.1 runtime, talk to the real relay over a real socket. Both clients get a lease and each renders the other player's position. |
+| `tests/test_native.py` | The native module loads into LuaJIT through `package.loadlib`, as the game loads it, and completes a UDP round trip in both directions. |
+| `tests/test_float_format.py` | The relay renders floats exactly as the reference does *and* exactly as Lua does, over 546 values covering rounding, exponential notation and denormals. |
+
+The end-to-end test is the one that matters most: it is the game's own
+client code against this relay, with no shim in between.
+
+The reference project's own equivalent only runs on Linux, because lupa
+links its own LuaJIT statically and does not export the C API the native
+module needs. Here LuaJIT 2.1 is built from source as `lua51_64.dll` —
+the name X4's Windows build ships, and the name the C reference resolves —
+so the same code path is exercised as the game runs it.
+
+```sh
+# Build LuaJIT as the test runtime (needs the MSVC toolchain).
+tests\\build_luajit_reference.bat
+cp target/lua/lua51_64.dll ...   # wherever the test expects it
+
+python tests/test_end_to_end.py
+python tests/test_native.py
+python tests/test_float_format.py
+```
 
 ### The scenarios
 

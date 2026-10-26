@@ -20,7 +20,10 @@ pub const MAX_SEQ: i64 = 2_147_483_647;
 
 /// A lease is exactly 32 lowercase hexadecimal characters.
 pub fn is_lease(value: &str) -> bool {
-    value.len() == 32 && value.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    value.len() == 32
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
 /// An identifier is 1..=96 characters of `[A-Za-z0-9_.-]`.
@@ -122,7 +125,10 @@ impl PeerAddress {
 
     /// The dotted-quad form of the address, without the port.
     pub fn ip_text(&self) -> String {
-        format!("{}.{}.{}.{}", self.ip[0], self.ip[1], self.ip[2], self.ip[3])
+        format!(
+            "{}.{}.{}.{}",
+            self.ip[0], self.ip[1], self.ip[2], self.ip[3]
+        )
     }
 }
 

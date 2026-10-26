@@ -1,0 +1,65 @@
+name: build and test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  # The Rust port must build and pass its own unit tests on every platform
+  # the relay targets.
+  build:
+    name: build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - name: Build
+        run: cargo build --workspace --release
+      - name: Test
+        run: cargo test --workspace
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Format
+        run: cargo fmt --all --check
+
+  # The relay must stay byte-for-byte compatible with the Python reference.
+  # The reference is a separate repository, so it is fetched as an artefact.
+  conformance:
+    name: conformance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build the harness
+        run: cargo build --release -p x4lan-conformance
+      - name: Fetch the Python reference
+        run: |
+          git clone --depth 1 https://github.com/ComfyChloe/X4-Multiplayer-Source.git reference
+      - name: Generate the scenarios
+        run: python conformance/make_scenarios.py
+      - name: Compare every scenario
+        run: |
+          status=0
+          for scenario in conformance/scenarios/*.json; do
+            python conformance/compare.py "$scenario" --reference reference || status=1
+          done
+          exit $status
+      - name: Fuzz
+        run: |
+          for seed in 1 2 3 4 5; do
+            python conformance/fuzz.py 20 --seed $seed || exit 1
+          done

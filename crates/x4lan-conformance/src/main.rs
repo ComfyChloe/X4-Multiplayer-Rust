@@ -77,8 +77,8 @@ fn main() -> std::process::ExitCode {
     let transcript_path = &arguments[1];
 
     let mut contents = String::new();
-    if let Err(error) = std::fs::File::open(scenario_path)
-        .and_then(|mut file| file.read_to_string(&mut contents))
+    if let Err(error) =
+        std::fs::File::open(scenario_path).and_then(|mut file| file.read_to_string(&mut contents))
     {
         eprintln!("error: could not read {scenario_path}: {error}");
         return std::process::ExitCode::FAILURE;
@@ -98,6 +98,10 @@ fn main() -> std::process::ExitCode {
     };
 
     let mut session = Session::new(mode, &scenario.token, &scenario.build, &scenario.bubble);
+    if let Err(message) = Session::validate_build(mode, &scenario.build) {
+        eprintln!("error: {message}");
+        return std::process::ExitCode::FAILURE;
+    }
     // Leases must match the reference's sequence, so both sides generate them
     // the same way.
     session.use_deterministic_leases();

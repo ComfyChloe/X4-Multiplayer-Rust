@@ -34,12 +34,7 @@ pub struct Baseline {
 
 impl Baseline {
     /// Creates a baseline, rejecting duplicate or unordered identifiers.
-    pub fn create(
-        epoch: &str,
-        revision: i64,
-        sector: &str,
-        rows: Vec<String>,
-    ) -> Option<Baseline> {
+    pub fn create(epoch: &str, revision: i64, sector: &str, rows: Vec<String>) -> Option<Baseline> {
         if !is_lease(epoch) || !(1..=2_147_483_647).contains(&revision) {
             return None;
         }
@@ -116,7 +111,11 @@ pub fn parse_record(value: &str) -> Option<i64> {
         if !value.is_finite() {
             return None;
         }
-        let limit = if index < 3 { 50_000_000.0 } else { std::f64::consts::TAU };
+        let limit = if index < 3 {
+            50_000_000.0
+        } else {
+            std::f64::consts::TAU
+        };
         if value.abs() > limit {
             return None;
         }
@@ -367,15 +366,16 @@ impl Sender {
             if outstanding.is_empty() {
                 vec![self.baseline.rows.len() + 1]
             } else {
-                outstanding
-                    .into_iter()
-                    .take(WINDOW)
-                    .collect()
+                outstanding.into_iter().take(WINDOW).collect()
             }
         };
         let mut result = Vec::new();
         for index in indices {
-            let last = self.sent_at.get(&index).copied().unwrap_or(f64::NEG_INFINITY);
+            let last = self
+                .sent_at
+                .get(&index)
+                .copied()
+                .unwrap_or(f64::NEG_INFINITY);
             if now - last >= RETRY {
                 self.sent_at.insert(index, now);
                 if let Some(packet) = self.baseline.packet(lease, index) {
@@ -408,6 +408,12 @@ pub struct CargoRequest {
     pub fence: i64,
 }
 
+impl Default for CargoTransactions {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CargoTransactions {
     pub fn new() -> Self {
         Self {
@@ -437,8 +443,6 @@ impl Identities {
     }
 }
 
-
-
 impl Session {
     /// Handles a packet in the universe layer.
     pub(super) fn receive_universe(
@@ -453,7 +457,10 @@ impl Session {
         if raw.starts_with(b"IDENT|") {
             return self.receive_identities(raw, address, now);
         }
-        if raw.starts_with(b"CARGOREQ|") || raw.starts_with(b"CARGODONE|") || raw.starts_with(b"CINV|") {
+        if raw.starts_with(b"CARGOREQ|")
+            || raw.starts_with(b"CARGODONE|")
+            || raw.starts_with(b"CINV|")
+        {
             return self.receive_cargo(raw, address, now);
         }
         if !(raw.starts_with(b"UBEGIN|")
@@ -483,7 +490,11 @@ impl Session {
         let Some(slot) = self.peer_slot(fields[2], address) else {
             return Vec::new();
         };
-        let peer_lease = self.peers.get(&slot).map(|p| p.lease.clone()).unwrap_or_default();
+        let peer_lease = self
+            .peers
+            .get(&slot)
+            .map(|p| p.lease.clone())
+            .unwrap_or_default();
 
         if fields[0] == "UINTEREST" && slot == "p2" && fields.len() == 5 {
             let Some(seq) = sequence(fields[3]) else {
@@ -502,7 +513,9 @@ impl Session {
             self.interest = Some((peer_lease.clone(), seq, sector.to_string()));
             let changed = match &old {
                 None => true,
-                Some((old_lease, _, old_sector)) => old_lease != &peer_lease || old_sector != sector,
+                Some((old_lease, _, old_sector)) => {
+                    old_lease != &peer_lease || old_sector != sector
+                }
             };
             if changed {
                 self.delivery = None;
@@ -536,7 +549,9 @@ impl Session {
                     None => return Vec::new(),
                 }
             };
-            if self.delivery.is_some() && self.delivery_lease.as_deref() == Some(peer_lease.as_str()) {
+            if self.delivery.is_some()
+                && self.delivery_lease.as_deref() == Some(peer_lease.as_str())
+            {
                 let epoch = fields[3].to_string();
                 if let Some(delivery) = self.delivery.as_mut() {
                     delivery.acknowledge(&epoch, revision, index);
@@ -558,7 +573,9 @@ impl Session {
             }
         }
 
-        if (fields[0] == "UPOS" && fields.len() == 13) || (fields[0] == "UMOVE" && fields.len() == 20) {
+        if (fields[0] == "UPOS" && fields.len() == 13)
+            || (fields[0] == "UMOVE" && fields.len() == 20)
+        {
             let (Some(entity), Some(seq)) = (sequence(fields[4]), sequence(fields[5])) else {
                 return Vec::new();
             };
@@ -586,7 +603,11 @@ impl Session {
                     let Some(value) = py_float(field) else {
                         return Vec::new();
                     };
-                    let limit = if index < 3 { 100_000.0 } else { std::f64::consts::TAU };
+                    let limit = if index < 3 {
+                        100_000.0
+                    } else {
+                        std::f64::consts::TAU
+                    };
                     if !value.is_finite() || value.abs() > limit {
                         return Vec::new();
                     }
@@ -595,7 +616,11 @@ impl Session {
             let Some(baseline) = self.sectors.get(sector) else {
                 return Vec::new();
             };
-            if !baseline.rows.iter().any(|row| parse_record(row) == Some(entity)) {
+            if !baseline
+                .rows
+                .iter()
+                .any(|row| parse_record(row) == Some(entity))
+            {
                 return Vec::new();
             }
             if let Some(old) = self.positions.get(&entity) {
@@ -633,7 +658,8 @@ impl Session {
         self.universe_epoch = Some(peer_lease.clone());
         if let Some(committed) = committed {
             self.npc_combat.committed(&committed);
-            self.sectors.insert(committed.sector.clone(), committed.clone());
+            self.sectors
+                .insert(committed.sector.clone(), committed.clone());
             while self.sectors.len() > 8 {
                 let oldest = self.sectors.keys().next().cloned().unwrap_or_default();
                 self.sectors.remove(&oldest);
@@ -656,12 +682,7 @@ impl Session {
     }
 
     /// Handles a native cargo packet.
-    fn receive_cargo(
-        &mut self,
-        raw: &[u8],
-        address: PeerAddress,
-        now: f64,
-    ) -> Vec<Vec<u8>> {
+    fn receive_cargo(&mut self, raw: &[u8], address: PeerAddress, now: f64) -> Vec<Vec<u8>> {
         self.expire(now);
         if raw.len() > MAX_PACKET {
             return Vec::new();
@@ -679,12 +700,18 @@ impl Session {
         let Some(slot) = self.peer_slot(fields[2], address) else {
             return Vec::new();
         };
-        let peer_lease = self.peers.get(&slot).map(|p| p.lease.clone()).unwrap_or_default();
+        let peer_lease = self
+            .peers
+            .get(&slot)
+            .map(|p| p.lease.clone())
+            .unwrap_or_default();
 
         if fields[0] == "CINV" && fields.len() == 8 && slot == "p1" && fields[3] == peer_lease {
-            let (Some(seq), Some(first), Some(second)) =
-                (sequence(fields[4]), sequence(fields[6]), sequence(fields[7]))
-            else {
+            let (Some(seq), Some(first), Some(second)) = (
+                sequence(fields[4]),
+                sequence(fields[6]),
+                sequence(fields[7]),
+            ) else {
                 return Vec::new();
             };
             let ware = fields[5];
@@ -816,12 +843,7 @@ impl Session {
     }
 
     /// Handles a host identity observation.
-    fn receive_identities(
-        &mut self,
-        raw: &[u8],
-        address: PeerAddress,
-        now: f64,
-    ) -> Vec<Vec<u8>> {
+    fn receive_identities(&mut self, raw: &[u8], address: PeerAddress, now: f64) -> Vec<Vec<u8>> {
         self.expire(now);
         if raw.len() > MAX_PACKET {
             return Vec::new();
@@ -842,7 +864,11 @@ impl Session {
         if slot != "p1" {
             return Vec::new();
         }
-        let peer_lease = self.peers.get(&slot).map(|p| p.lease.clone()).unwrap_or_default();
+        let peer_lease = self
+            .peers
+            .get(&slot)
+            .map(|p| p.lease.clone())
+            .unwrap_or_default();
         if fields[3] != peer_lease {
             return Vec::new();
         }
@@ -870,10 +896,7 @@ impl Session {
                 }
             }
             "N" => {
-                let known = self
-                    .entity_ids
-                    .values()
-                    .any(|ids| ids.contains(&entity));
+                let known = self.entity_ids.values().any(|ids| ids.contains(&entity));
                 if !known {
                     return Vec::new();
                 }
@@ -903,7 +926,11 @@ impl Session {
         }
         self.identities.rows.insert(
             key,
-            (seq, now, fields[3..].iter().map(|s| s.to_string()).collect()),
+            (
+                seq,
+                now,
+                fields[3..].iter().map(|s| s.to_string()).collect(),
+            ),
         );
         Vec::new()
     }
@@ -987,12 +1014,8 @@ impl Session {
         };
         if now >= self.cargo.next_inventory {
             self.cargo.next_inventory = now + 0.2;
-            let values: Vec<(i64, f64, Vec<String>)> = self
-                .cargo
-                .inventory
-                .values()
-                .cloned()
-                .collect();
+            let values: Vec<(i64, f64, Vec<String>)> =
+                self.cargo.inventory.values().cloned().collect();
             if !values.is_empty() {
                 let selected: Vec<&(i64, f64, Vec<String>)> = (0..values.len().min(32))
                     .map(|offset| {
@@ -1084,7 +1107,9 @@ impl Session {
         if rows.is_empty() {
             return Vec::new();
         }
-        let limit = rows.len().min(256).max(32).min(rows.len().div_ceil(10).max(32));
+        // The reference sends at most 256 rows, at least 32, and at most a
+        // tenth of the rows it holds.
+        let limit = rows.len().min(256.min(32.max(rows.len().div_ceil(10))));
         let mut result = Vec::new();
         for offset in 0..limit {
             let fields = &rows[(self.identities.cursor + offset) % rows.len()];

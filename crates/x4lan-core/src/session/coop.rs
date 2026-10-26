@@ -54,7 +54,11 @@ pub fn parse_pose(values: &[&str]) -> Option<[f64; 6]> {
         if !value.is_finite() {
             return None;
         }
-        let limit = if index < 3 { POSITION_LIMIT } else { std::f64::consts::TAU };
+        let limit = if index < 3 {
+            POSITION_LIMIT
+        } else {
+            std::f64::consts::TAU
+        };
         if value.abs() > limit {
             return None;
         }
@@ -132,7 +136,11 @@ impl QuestState {
     }
 
     /// Produces quest snapshots for every peer.
-    pub fn snapshots(&mut self, peers: &OrderedMap<String, super::Peer>, now: f64) -> Vec<(PeerAddress, Vec<u8>)> {
+    pub fn snapshots(
+        &mut self,
+        peers: &OrderedMap<String, super::Peer>,
+        now: f64,
+    ) -> Vec<(PeerAddress, Vec<u8>)> {
         let Some(host) = peers.get("p1") else {
             return Vec::new();
         };
@@ -207,6 +215,12 @@ pub struct MissionJournal {
     pub changed: Vec<i64>,
 }
 
+impl Default for MissionJournal {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MissionJournal {
     pub fn new() -> Self {
         Self {
@@ -267,8 +281,20 @@ impl Session {
         let kind = fields[0];
 
         const COOP_KINDS: [&str; 14] = [
-            "CREW", "NAV", "NAV2", "FIRE2", "HEALTH", "HACK", "HSTALE", "SHOT", "BODY2", "PERF",
-            "COOPORDER", "QUEST", "BOLT", "BEND",
+            "CREW",
+            "NAV",
+            "NAV2",
+            "FIRE2",
+            "HEALTH",
+            "HACK",
+            "HSTALE",
+            "SHOT",
+            "BODY2",
+            "PERF",
+            "COOPORDER",
+            "QUEST",
+            "BOLT",
+            "BEND",
         ];
         if !COOP_KINDS.contains(&kind) {
             // Legacy movement, fire and dock frames must never override
@@ -325,9 +351,8 @@ impl Session {
                         .and_then(|peer| self.crew.get(&peer.lease).map(|crew| crew.1))
                         .unwrap_or(0);
                     let owner = self.owners.get(&entity).cloned().unwrap_or_default();
-                    let rejected = entity != 1 && entity != 2
-                        || owner != command.slot
-                        || self.dead(entity);
+                    let rejected =
+                        entity != 1 && entity != 2 || owner != command.slot || self.dead(entity);
                     if let Some(stored) = self.commands.get_mut(request) {
                         stored.ship = Some(entity);
                         if rejected {
@@ -345,7 +370,11 @@ impl Session {
         let Some(slot) = self.peer_slot(fields[2], address) else {
             return Vec::new();
         };
-        let peer_lease = self.peers.get(&slot).map(|p| p.lease.clone()).unwrap_or_default();
+        let peer_lease = self
+            .peers
+            .get(&slot)
+            .map(|p| p.lease.clone())
+            .unwrap_or_default();
         self.receive_coop_state(kind, &fields, &slot, &peer_lease, address, now)
     }
 
@@ -401,10 +430,9 @@ impl Session {
                     self.authority_revision += 1;
                 }
                 if controlled != 0 && granted == 0 {
-                    return vec![format!(
-                        "PILOT_DENIED|1|{peer_lease}|{seq}|{controlled}"
-                    )
-                    .into_bytes()];
+                    return vec![
+                        format!("PILOT_DENIED|1|{peer_lease}|{seq}|{controlled}").into_bytes()
+                    ];
                 }
             }
             "NAV" if fields.len() == 15 => {
@@ -534,12 +562,18 @@ impl Session {
                 }
             }
             "SHOT" if fields.len() == 10 => {
-                let (Some(shooter), Some(shooter_generation), Some(victim), Some(victim_generation)) = (
+                let (
+                    Some(shooter),
+                    Some(shooter_generation),
+                    Some(victim),
+                    Some(victim_generation),
+                ) = (
                     super::economy::integer(fields[3], 2, false),
                     sequence(fields[4]),
                     super::economy::integer(fields[5], 4, false),
                     sequence(fields[6]),
-                ) else {
+                )
+                else {
                     return Vec::new();
                 };
                 let (Some(seq), Some(hits)) = (
@@ -569,7 +603,9 @@ impl Session {
                 if self.victim_authority(victim) == slot {
                     return Vec::new();
                 }
-                if slot != "p1" && self.health_live.get(&shooter).copied() != Some(shooter_generation) {
+                if slot != "p1"
+                    && self.health_live.get(&shooter).copied() != Some(shooter_generation)
+                {
                     return Vec::new();
                 }
                 if !is_shot_digest(fields[9]) {
@@ -597,9 +633,10 @@ impl Session {
                 );
             }
             "HACK" if fields.len() == 5 => {
-                let (Some(entity), Some(generation)) =
-                    (super::economy::integer(fields[3], 2, false), sequence(fields[4]))
-                else {
+                let (Some(entity), Some(generation)) = (
+                    super::economy::integer(fields[3], 2, false),
+                    sequence(fields[4]),
+                ) else {
                     return Vec::new();
                 };
                 if (entity == 1 || entity == 2)
@@ -617,9 +654,10 @@ impl Session {
                 }
             }
             "HSTALE" if fields.len() == 5 => {
-                let (Some(entity), Some(generation)) =
-                    (super::economy::integer(fields[3], 2, false), sequence(fields[4]))
-                else {
+                let (Some(entity), Some(generation)) = (
+                    super::economy::integer(fields[3], 2, false),
+                    sequence(fields[4]),
+                ) else {
                     return Vec::new();
                 };
                 if slot == "p1"
@@ -638,7 +676,8 @@ impl Session {
                     return Vec::new();
                 };
                 let mode = fields[4];
-                if !["ship", "foot", "suit"].contains(&mode) || (mode == "suit" && generation == 0) {
+                if !["ship", "foot", "suit"].contains(&mode) || (mode == "suit" && generation == 0)
+                {
                     return Vec::new();
                 }
                 if !is_atom(fields[7]) || !fields[7].ends_with("_macro") {
@@ -734,12 +773,11 @@ impl Session {
                 {
                     return vec![self.order_reply(peer_lease, request, "REJECTED")];
                 }
-                let rewritten = format!(
-                    "ORDER|1|{peer_lease}|{request}|{host}|{market}|{lines}"
-                );
+                let rewritten = format!("ORDER|1|{peer_lease}|{request}|{host}|{market}|{lines}");
                 let reply = self.receive_economy(rewritten.as_bytes(), _address, now);
                 if self.orders.contains_key(request) {
-                    self.order_ships.insert(request.to_string(), (entity, epoch));
+                    self.order_ships
+                        .insert(request.to_string(), (entity, epoch));
                 }
                 return reply;
             }
@@ -796,7 +834,11 @@ impl Session {
                 let Some(value) = py_float(field) else {
                     return;
                 };
-                let limit = if index < 3 { VELOCITY_LIMIT } else { std::f64::consts::TAU };
+                let limit = if index < 3 {
+                    VELOCITY_LIMIT
+                } else {
+                    std::f64::consts::TAU
+                };
                 if !value.is_finite() || value.abs() > limit {
                     return;
                 }
@@ -808,7 +850,9 @@ impl Session {
                 }
                 if old.kind == "NAV2"
                     && old.fields.len() > 12
-                    && py_float(&old.fields[12]).map(|t| source_time <= t).unwrap_or(false)
+                    && py_float(&old.fields[12])
+                        .map(|t| source_time <= t)
+                        .unwrap_or(false)
                 {
                     return;
                 }
@@ -901,7 +945,10 @@ impl Session {
         if victim == 1 || victim == 2 {
             let slot = self.owners.get(&victim).cloned().unwrap_or_default();
             let generation = self.health_generation(victim);
-            if slot != "p1" && self.pilot(victim) == slot && self.health_live.get(&victim).copied() == Some(generation) {
+            if slot != "p1"
+                && self.pilot(victim) == slot
+                && self.health_live.get(&victim).copied() == Some(generation)
+            {
                 return slot;
             }
         }
@@ -1008,8 +1055,13 @@ impl Session {
                 }
                 result.push((
                     peer.address,
-                    format!("FIRE2|1|{}|{}|{}", peer.lease, fire.lease, fire.fields.join("|"))
-                        .into_bytes(),
+                    format!(
+                        "FIRE2|1|{}|{}|{}",
+                        peer.lease,
+                        fire.lease,
+                        fire.fields.join("|")
+                    )
+                    .into_bytes(),
                 ));
             }
             let generation_one = self.health_generation(1);
@@ -1049,7 +1101,9 @@ impl Session {
                     && self.world.is_some()
                     && !self.dead(entity)
                 {
-                    let world = self.world.as_ref().unwrap();
+                    let Some(world) = self.world.as_ref() else {
+                        continue;
+                    };
                     let index = ((entity - 1) * 3) as usize;
                     let hull = world[index];
                     let shield = world[index + 1];
@@ -1083,8 +1137,13 @@ impl Session {
                 {
                     result.push((
                         peer.address,
-                        format!("SHOT|1|{}|{}|{}", peer.lease, shot.lease, shot.fields.join("|"))
-                            .into_bytes(),
+                        format!(
+                            "SHOT|1|{}|{}|{}",
+                            peer.lease,
+                            shot.lease,
+                            shot.fields.join("|")
+                        )
+                        .into_bytes(),
                     ));
                 }
             }
@@ -1127,13 +1186,10 @@ impl Session {
         let retained: Vec<String> = live
             .iter()
             .cloned()
-            .chain(
-                self.resumable
-                    .values()
-                    .map(|(peer, _)| peer.lease.clone()),
-            )
+            .chain(self.resumable.values().map(|(peer, _)| peer.lease.clone()))
             .collect();
-        self.body_sectors.retain(|lease, _| retained.contains(lease));
+        self.body_sectors
+            .retain(|lease, _| retained.contains(lease));
         self.game_metrics.retain(|lease, _| live.contains(lease));
         self.health.retain(|_, frame| live.contains(&frame.lease));
         // Every message and snapshot starts here, so each authority transition

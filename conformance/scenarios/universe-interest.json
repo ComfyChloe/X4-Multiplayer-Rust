@@ -1,0 +1,32 @@
+{
+  "mode": "universe",
+  "token": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "build": "world1-test",
+  "bubble": "bubble",
+  "steps": [
+    {
+      "at": 0.0,
+      "packet": "HELLO|1|aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|test|sector_macro|bubble|p1|11111111111111111111111111111111",
+      "from": "127.0.0.1:10001"
+    },
+    {
+      "at": 0.0,
+      "packet": "HELLO|1|aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|test|sector_macro|bubble|p2|22222222222222222222222222222222",
+      "from": "127.0.0.1:10002"
+    },
+    {
+      "at": 0.1,
+      "packet": "UINTEREST|1|eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee|1|sector_macro",
+      "from": "127.0.0.1:10002"
+    },
+    {
+      "at": 0.2,
+      "packet": "IDENT|1|ffffffffffffffffffffffffffffffff|ffffffffffffffffffffffffffffffff|1|P|1|ABCD|3631|1|0",
+      "from": "127.0.0.1:10001"
+    },
+    {
+      "at": 0.3,
+      "snapshot": true
+    }
+  ]
+}

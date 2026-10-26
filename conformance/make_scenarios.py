@@ -23,6 +23,8 @@ NONCE_3 = "3" * 32
 LEASE_1 = "f" * 32
 LEASE_2 = "e" * 32
 BUILD = "test"
+# World synchronisation uses a distinct build label, as the reference requires.
+WORLD_BUILD = "world1-test"
 BUBBLE = "bubble"
 SECTOR = "sector_macro"
 
@@ -43,11 +45,11 @@ def idle(lease, seq=1):
     return f"IDLE|1|{lease}|{seq}"
 
 
-def scenario(mode, steps):
+def scenario(mode, steps, build=BUILD):
     return {
         "mode": mode,
         "token": TOKEN,
-        "build": BUILD,
+        "build": build,
         "bubble": BUBBLE,
         "steps": steps,
     }
@@ -362,6 +364,62 @@ def scenarios():
                 step(0.2, f"CDOCK|1|{LEASE_1}|1|1|2|EXTERNAL|42", sender=P1),
                 step(0.3, snapshot=True),
             ],
+        ),
+    )
+
+
+    # --- The universe layer -------------------------------------------------
+    # The universe layer had no coverage until a divergence turned up in its
+    # identity batching, so it gets a scenario of its own.
+    yield (
+        "universe-interest",
+        scenario(
+            "universe",
+            [
+                step(0.0, hello()),
+                step(0.0, hello("p2", NONCE_2), sender=P2),
+                # The guest declares the sector it is watching.
+                step(0.1, f"UINTEREST|1|{LEASE_2}|1|sector_macro", sender=P2),
+                # The host publishes an identity for one of the co-op ships.
+                step(
+                    0.2,
+                    f"IDENT|1|{LEASE_1}|{LEASE_1}|1|P|1|ABCD|{'61'.encode().hex()}|1|0",
+                    sender=P1,
+                ),
+                step(0.3, snapshot=True),
+            ],
+            build=WORLD_BUILD,
+        ),
+    )
+
+    yield (
+        "universe-rejects-foreign-identity",
+        scenario(
+            "universe",
+            [
+                step(0.0, hello()),
+                step(0.0, hello("p2", NONCE_2), sender=P2),
+                # An identity whose scope is not one of the three the relay knows.
+                step(
+                    0.1,
+                    f"IDENT|1|{LEASE_1}|{LEASE_1}|1|Z|1|ABCD|{'61'.encode().hex()}|1|0",
+                    sender=P1,
+                ),
+                # A name that is not valid hex.
+                step(
+                    0.2,
+                    f"IDENT|1|{LEASE_1}|{LEASE_1}|2|P|1|ABCD|nothex|1|0",
+                    sender=P1,
+                ),
+                # An entity outside the range the scope allows.
+                step(
+                    0.3,
+                    f"IDENT|1|{LEASE_1}|{LEASE_1}|3|P|9|ABCD|{'61'.encode().hex()}|1|0",
+                    sender=P1,
+                ),
+                step(0.4, snapshot=True),
+            ],
+            build=WORLD_BUILD,
         ),
     )
 

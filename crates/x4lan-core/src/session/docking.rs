@@ -42,7 +42,11 @@ impl Session {
         let Some(slot) = self.peer_slot(fields[2], address) else {
             return Vec::new();
         };
-        let peer_lease = self.peers.get(&slot).map(|p| p.lease.clone()).unwrap_or_default();
+        let peer_lease = self
+            .peers
+            .get(&slot)
+            .map(|p| p.lease.clone())
+            .unwrap_or_default();
         let (Some(entity), Some(epoch), Some(seq)) = (
             super::economy::integer(fields[3], 2, false),
             sequence(fields[4]),
@@ -85,15 +89,13 @@ impl Session {
         self.coop_dock_seen.insert(entity, (key, seq));
         if dock != 0 {
             let conflict = self.coop_docks.iter().any(|(other, row)| {
-                *other != entity
-                    && self.current_dock(*other, row)
-                    && row.claim == dock
+                *other != entity && self.current_dock(*other, row) && row.claim == dock
             });
             if conflict {
-                return vec![format!(
-                    "CDOCK_DENIED|1|{peer_lease}|{entity}|{epoch}|{seq}|{dock}"
-                )
-                .into_bytes()];
+                return vec![
+                    format!("CDOCK_DENIED|1|{peer_lease}|{entity}|{epoch}|{seq}|{dock}")
+                        .into_bytes(),
+                ];
             }
         }
         let mut claim = dock;

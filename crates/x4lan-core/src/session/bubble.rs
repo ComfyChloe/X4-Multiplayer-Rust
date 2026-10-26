@@ -42,7 +42,8 @@ impl Session {
             "ACTION" if fields.len() == 7 => {
                 let (token, slot, request, verb, target) =
                     (fields[2], fields[3], fields[4], fields[5], fields[6]);
-                if !constant_time_eq(token.as_bytes(), self.token.as_bytes()) || !is_lease(request) {
+                if !constant_time_eq(token.as_bytes(), self.token.as_bytes()) || !is_lease(request)
+                {
                     return Vec::new();
                 }
                 if (slot != "p1" && slot != "p2")
@@ -134,7 +135,11 @@ impl Session {
                 {
                     return Vec::new();
                 }
-                let lease = self.peers.get(&slot).map(|p| p.lease.clone()).unwrap_or_default();
+                let lease = self
+                    .peers
+                    .get(&slot)
+                    .map(|p| p.lease.clone())
+                    .unwrap_or_default();
                 if let Some(old) = self.walkers.get(&lease) {
                     if seq <= old.0 {
                         return Vec::new();
@@ -151,9 +156,11 @@ impl Session {
                 );
             }
             "BODY" if fields.len() == 13 => {
-                let (Some(seq), Some(dead), Some(generation)) =
-                    (sequence(fields[3]), sequence(fields[5]), sequence(fields[6]))
-                else {
+                let (Some(seq), Some(dead), Some(generation)) = (
+                    sequence(fields[3]),
+                    sequence(fields[5]),
+                    sequence(fields[6]),
+                ) else {
                     return Vec::new();
                 };
                 let mode = fields[4];
@@ -170,7 +177,13 @@ impl Session {
                     };
                     pose[index] = value;
                 }
-                let limit = |index: usize| if index < 3 { 50_000.0 } else { std::f64::consts::TAU };
+                let limit = |index: usize| {
+                    if index < 3 {
+                        50_000.0
+                    } else {
+                        std::f64::consts::TAU
+                    }
+                };
                 if !pose
                     .iter()
                     .enumerate()
@@ -178,11 +191,17 @@ impl Session {
                 {
                     return Vec::new();
                 }
-                let lease = self.peers.get(&slot).map(|p| p.lease.clone()).unwrap_or_default();
+                let lease = self
+                    .peers
+                    .get(&slot)
+                    .map(|p| p.lease.clone())
+                    .unwrap_or_default();
                 if let Some(old) = self.bodies.get(&lease) {
                     let old_dead: i64 = old[2].parse().unwrap_or(0);
                     let old_generation: i64 = old[3].parse().unwrap_or(0);
-                    if seq <= old[0].parse().unwrap_or(i64::MIN) || dead < old_dead || generation < old_generation
+                    if seq <= old[0].parse().unwrap_or(i64::MIN)
+                        || dead < old_dead
+                        || generation < old_generation
                     {
                         return Vec::new();
                     }
@@ -203,7 +222,11 @@ impl Session {
                 let Some(guest) = self.peers.get("p2").cloned() else {
                     return Vec::new();
                 };
-                let host_lease = self.peers.get("p1").map(|p| p.lease.clone()).unwrap_or_default();
+                let host_lease = self
+                    .peers
+                    .get("p1")
+                    .map(|p| p.lease.clone())
+                    .unwrap_or_default();
                 if let Some(body) = self.bodies.get(&guest.lease) {
                     if body[1] == "suit" && body[3].parse::<i64>().unwrap_or(-1) == generation {
                         self.suit_kills
@@ -222,7 +245,10 @@ impl Session {
                     };
                     values.push(value);
                 }
-                if !values.iter().all(|v| v.is_finite() && (0.0..=1_000_000.0).contains(v)) {
+                if !values
+                    .iter()
+                    .all(|v| v.is_finite() && (0.0..=1_000_000.0).contains(v))
+                {
                     return Vec::new();
                 }
                 for index in [0, 1, 3, 4, 6, 7, 8, 9] {
@@ -240,7 +266,11 @@ impl Session {
                         return Vec::new();
                     }
                 }
-                let host_lease = self.peers.get("p1").map(|p| p.lease.clone()).unwrap_or_default();
+                let host_lease = self
+                    .peers
+                    .get("p1")
+                    .map(|p| p.lease.clone())
+                    .unwrap_or_default();
                 if self.world_owner.as_deref() != Some(host_lease.as_str()) {
                     self.world_revision = -1;
                     self.world_owner = Some(host_lease);
@@ -255,7 +285,11 @@ impl Session {
                 let Some(seq) = sequence(fields[3]) else {
                     return Vec::new();
                 };
-                let lease = self.peers.get(&slot).map(|p| p.lease.clone()).unwrap_or_default();
+                let lease = self
+                    .peers
+                    .get(&slot)
+                    .map(|p| p.lease.clone())
+                    .unwrap_or_default();
                 let old = self.fire.get(&lease).copied().unwrap_or((-1, 0.0));
                 if seq > old.0 {
                     self.fire.insert(lease, (seq, now));
@@ -283,7 +317,8 @@ impl Session {
                 continue;
             };
             if let (Some(world), Some(host)) = (&self.world, &host) {
-                let payload: Vec<String> = world.iter().map(|v| crate::format::py_g(*v, 9)).collect();
+                let payload: Vec<String> =
+                    world.iter().map(|v| crate::format::py_g(*v, 9)).collect();
                 result.push((
                     peer.address,
                     format!(

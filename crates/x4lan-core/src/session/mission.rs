@@ -28,7 +28,9 @@ fn text_field(value: &str, maximum: usize) -> Option<String> {
     if value.is_empty()
         || value.len() > maximum * 2
         || value.len() % 2 != 0
-        || !value.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+        || !value
+            .bytes()
+            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
     {
         return None;
     }
@@ -40,7 +42,11 @@ fn text_field(value: &str, maximum: usize) -> Option<String> {
         bytes.push((high * 16 + low) as u8);
     }
     let text = String::from_utf8(bytes).ok()?;
-    if text.chars().any(|c| (c as u32) < 32 && c != '\n' && c != '\t') || text.contains('\u{7f}') {
+    if text
+        .chars()
+        .any(|c| (c as u32) < 32 && c != '\n' && c != '\t')
+        || text.contains('\u{7f}')
+    {
         return None;
     }
     Some(text)
@@ -93,7 +99,10 @@ pub fn parse_record(payload: &str) -> Option<super::coop::MissionRecord> {
 }
 
 /// Whether a new record may replace an old one.
-pub fn advances(old: Option<&super::coop::MissionRecord>, new: &super::coop::MissionRecord) -> bool {
+pub fn advances(
+    old: Option<&super::coop::MissionRecord>,
+    new: &super::coop::MissionRecord,
+) -> bool {
     let Some(old) = old else {
         // A terminal fact may be the first retained record after joining.
         return true;
@@ -143,7 +152,11 @@ impl Session {
         let Some(slot) = self.peer_slot(fields[2], address) else {
             return Vec::new();
         };
-        let peer_lease = self.peers.get(&slot).map(|p| p.lease.clone()).unwrap_or_default();
+        let peer_lease = self
+            .peers
+            .get(&slot)
+            .map(|p| p.lease.clone())
+            .unwrap_or_default();
         if fields[3] != host {
             return Vec::new();
         }
@@ -161,10 +174,9 @@ impl Session {
                     && ((old.row.state == "O" && fields[6] == "ACCEPT")
                         || (old.row.state == "A" && fields[6] == "ABORT"))
                 {
-                    self.missions.requests.insert(
-                        identifier,
-                        (peer_lease, revision, fields[6].to_string()),
-                    );
+                    self.missions
+                        .requests
+                        .insert(identifier, (peer_lease, revision, fields[6].to_string()));
                 }
             }
             return Vec::new();
@@ -179,18 +191,19 @@ impl Session {
             let (Ok(part), Ok(total), Ok(digest)) = (
                 fields[6].parse::<i64>(),
                 fields[7].parse::<i64>(),
-                fields[8].parse::<u32>(),
+                fields[8].parse::<i64>(),
             ) else {
                 return Vec::new();
             };
             if !(1..=total).contains(&part)
                 || total > MAX_PARTS
-                || digest > u32::MAX
+                || !(0..=u32::MAX as i64).contains(&digest)
                 || fields[9].is_empty()
                 || fields[9].len() > PART_SIZE
             {
                 return Vec::new();
             }
+            let digest = digest as u32;
             if !fields[9]
                 .bytes()
                 .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b',')

@@ -39,17 +39,19 @@ fn main() -> ExitCode {
     };
 
     let mode = options.mode();
-    let session = Session::new(
-        mode,
-        &options.token,
-        &options.build,
-        &options.bubble,
-    );
+    if let Err(message) = Session::validate_build(mode, &options.build) {
+        eprintln!("error: {message}");
+        return ExitCode::FAILURE;
+    }
+    let session = Session::new(mode, &options.token, &options.build, &options.bubble);
 
     let socket = match bind(&options.bind, options.port) {
         Ok(socket) => socket,
         Err(message) => {
-            eprintln!("error: could not bind {}/{}: {message}", options.bind, options.port);
+            eprintln!(
+                "error: could not bind {}/{}: {message}",
+                options.bind, options.port
+            );
             return ExitCode::FAILURE;
         }
     };
@@ -204,7 +206,9 @@ Options:
                 "--token" => options.token = arguments.next().ok_or("--token needs a value")?,
                 "--build" => options.build = arguments.next().ok_or("--build needs a value")?,
                 "--bubble" => options.bubble = arguments.next().ok_or("--bubble needs a value")?,
-                "--session" => session_file = Some(arguments.next().ok_or("--session needs a value")?),
+                "--session" => {
+                    session_file = Some(arguments.next().ok_or("--session needs a value")?)
+                }
                 "--bubble-actions" => options.bubble_actions = true,
                 "--trading" => options.trading = true,
                 "--coop" => options.coop = true,
