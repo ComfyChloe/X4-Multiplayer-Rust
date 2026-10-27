@@ -160,7 +160,7 @@ unsafe fn resolve(name: &CStr) -> Option<*mut c_void> {
     extern "C" {
         fn dlsym(handle: *mut c_void, symbol: *const raw_char) -> *mut c_void;
     }
-    const RTLD_DEFAULT: *mut c_void = 0 as *mut c_void;
+    const RTLD_DEFAULT: *mut c_void = std::ptr::null_mut();
     Some(dlsym(RTLD_DEFAULT, name.as_ptr()))
 }
 
@@ -354,7 +354,7 @@ unsafe extern "C" fn net_send(L: *mut lua_State) -> c_int {
         (lua.pushboolean)(L, 0);
         return 1;
     }
-    let bytes = std::slice::from_raw_parts(payload as *const u8, length);
+    let bytes = std::slice::from_raw_parts(payload.cast::<u8>(), length);
     let sent = send_bytes((*connection).handle, bytes);
     (lua.pushboolean)(L, if sent == length as isize { 1 } else { 0 });
     1
