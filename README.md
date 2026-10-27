@@ -87,27 +87,31 @@ match.
 
 X4's modding stack decides this, and it is not a matter of taste.
 
-**The game-side half must stay Lua.** X4 runs its own embedded LuaJIT 2.1
-and a Mission Director XML engine inside the game process. The extension's
-Lua and XML are not a choice — they are the only thing the game will load.
-Rewriting them in Rust would mean writing a native extension against
-Egosoft's closed-source engine, which is a different project with a
-different risk profile.
+**The game-side half is Lua today, and it is a constrained position rather than a
+permanent one.** X4 runs its own embedded LuaJIT 2.1 and a Mission Director XML engine
+inside the game process. The extension's Lua and XML are what the game will load.
 
-**The server half is the right thing to rewrite in Rust.** The reference
-implementation is a Python package, and each of its installers bundles a
-complete CPython runtime: the Windows package embeds a 3.14.8 interpreter,
-the Linux package unpacks a standalone build, and both are verified against
-published SHA-256 digests at install time. A Rust build removes that
-dependency, the interpreter's start-up cost, and the platform-specific
+But the project is already moving the game side into Rust: `contrib/ferrite-rust-core` in
+the upstream repository builds a Rust core that binds X4's own FFI at runtime — 25 exports
+resolved by `dlsym` on Linux and `GetProcAddress` on Windows, bound only when the address
+and the 16-byte code head match build 23660954. The `contrib/ferrite-rw-*` family
+(ecs-core, physics, transforms, lane, walk, combat, economy, ai-driver, ai-orders,
+frame-diet) is rewriting the simulation behind that core. The constraint there is not the
+language; it is that the binding is pinned to one game build.
+
+**The server half is the right thing to rewrite in Rust.** The reference implementation is
+a Python package, and each of its installers bundles a complete CPython runtime: the
+Windows package embeds a 3.14.8 interpreter, the Linux package unpacks a standalone build,
+and both are verified against published SHA-256 digests at install time. A Rust build
+removes that dependency, the interpreter's start-up cost, and the platform-specific
 launcher scripts, and leaves one static binary per platform.
 
-The protocol does not change. The game-side Lua cannot tell which server it
-is talking to — which is exactly what the conformance harness proves.
+The protocol does not change. The game-side Lua cannot tell which server it is talking to
+— which is exactly what the conformance harness proves.
 
-The other candidate language was C++, on the strength of the
-`X4Native` framework. That is the right tool for a *native extension inside
-the game*, which is a different problem from the one here.
+The other candidate language was C++, on the strength of the `X4Native` framework. That is
+the right tool for a *native extension inside the game*, which is the same problem the
+`ferrite-rust-core` branch is solving by hand in Rust.
 
 ---
 
@@ -260,6 +264,13 @@ the conformance harness turns on a deterministic lease sequence and both
 implementations then produce identical output.
 
 ---
+
+The upstream project already has a Rust port of its own, on
+`contrib/ferrite-rust-relay`. Two ports of the same relay, by two authors, is a liability
+rather than an asset; `docs/PORT-COMPARISON.md` sets out which parts of each are worth
+keeping. This port's distinguishing property is that it is verified against the Python
+reference by differential testing, and that the real game-side client has been run against
+it in a real LuaJIT runtime.
 
 ## Third-party notices
 
