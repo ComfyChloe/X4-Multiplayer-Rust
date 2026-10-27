@@ -24,7 +24,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 WORKSPACE = HERE.parent
-REFERENCE = WORKSPACE.parent / "X4-Multiplayer-Source"
+DEFAULT_REFERENCE = WORKSPACE.parent / "X4-Multiplayer-Source"
 
 TOKEN = "a" * 32
 BUILD = "test"
@@ -99,7 +99,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("iterations", nargs="?", type=int, default=50)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument(
+        "--reference",
+        default=str(DEFAULT_REFERENCE),
+        help="path to the Python reference implementation",
+    )
     arguments = parser.parse_args()
+
+    reference = Path(arguments.reference).resolve()
 
     rng = random.Random(arguments.seed)
     failures = 0
@@ -124,7 +131,7 @@ def main() -> int:
                     str(HERE / "compare.py"),
                     str(scenario),
                     "--reference",
-                    str(REFERENCE),
+                    str(reference),
                 ],
                 capture_output=True,
                 text=True,

@@ -61,5 +61,5 @@ jobs:
       - name: Fuzz
         run: |
           for seed in 1 2 3 4 5; do
-            python conformance/fuzz.py 20 --seed $seed || exit 1
+            python conformance/fuzz.py 20 --seed $seed --reference reference || exit 1
           done

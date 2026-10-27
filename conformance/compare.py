@@ -33,11 +33,24 @@ def run_reference(scenario: Path, transcript: Path, reference: Path) -> None:
     )
 
 
+def find_harness() -> Path | None:
+    """Locate the conformance harness, with or without a platform suffix.
+
+    Cargo emits `x4lan-conformance.exe` on Windows and an extensionless
+    `x4lan-conformance` everywhere else, so both spellings are tried in each
+    profile directory.
+    """
+    for profile in ("debug", "release"):
+        for name in ("x4lan-conformance.exe", "x4lan-conformance"):
+            candidate = WORKSPACE / "target" / profile / name
+            if candidate.is_file():
+                return candidate
+    return None
+
+
 def run_rust(scenario: Path, transcript: Path) -> None:
-    binary = WORKSPACE / "target" / "debug" / "x4lan-conformance.exe"
-    if not binary.is_file():
-        binary = WORKSPACE / "target" / "release" / "x4lan-conformance.exe"
-    if not binary.is_file():
+    binary = find_harness()
+    if binary is None:
         raise SystemExit("build the Rust port first: cargo build -p x4lan-conformance")
     subprocess.run([str(binary), str(scenario), str(transcript)], check=True)
 

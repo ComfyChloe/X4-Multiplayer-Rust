@@ -24,7 +24,7 @@
 /// * Trailing zeros are stripped, and a trailing decimal point is removed.
 ///
 /// ```
-/// # use py_g(0.30000000000000004, 9)
+/// # use x4lan_core::format::py_g;
 /// assert_eq!(py_g(0.30000000000000004, 9), "0.3");
 /// assert_eq!(py_g(1.0, 9), "1");
 /// assert_eq!(py_g(1e20, 9), "1e+20");
